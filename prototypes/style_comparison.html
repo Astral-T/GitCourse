@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comparación de Estilos - Portal de Curiosidad</title>
+  <!-- Fuente Premium Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #06070c 0%, #0c0d17 100%);
+      --font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg-gradient);
+      font-family: var(--font-family);
+      color: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 20px;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1400px;
+      width: 100%;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      background: linear-gradient(90deg, #a855f7, #00e5ff, #39ff14);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    .subtitle {
+      color: #718096;
+      font-size: 16px;
+      margin-bottom: 50px;
+      font-weight: 400;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #cbd5e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .section-title span {
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 4px 10px;
+      border-radius: 20px;
+      color: #a0aec0;
+    }
+
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 30px;
+      margin-bottom: 60px;
+    }
+
+    @media (min-width: 1024px) {
+      .comparison-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+    }
+
+    .column {
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px solid rgba(255, 255, 255, 0.02);
+      border-radius: 24px;
+      padding: 30px 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .cards-row {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: center;
+      margin-top: 10px;
+      width: 100%;
+    }
+
+    /* ==========================================================================
+       ESTILO A: NEÓN CYBERPUNK (Original)
+       ========================================================================== */
+    .card-style-a-cyan {
+      background: rgba(9, 10, 15, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 229, 255, 0.4);
+      border-radius: 16px;
+      padding: 24px;
+      color: #ffffff;
+      width: 100%;
+      max-width: 320px;
+      text-align: left;
+      box-shadow: 0 0 15px rgba(0, 229, 255, 0.15);
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      cursor: pointer;
+    }
+
+    .card-style-a-cyan:hover {
+      transform: translateY(-5px);
+      border-color: rgba(0, 229, 255, 0.8);
+      box-shadow: 0 0 25px rgba(0, 229, 255, 0.35);
+    }
+
+    .card-style-a-cyan .tag {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #00e5ff;
+      font-weight: 700;
+    }
+
+    .card-style-a-cyan h3 {
+      margin: 10px 0;
+      font-size: 20px;
+    }
+
+    .card-style-a-cyan p {
+      color: #a0aec0;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .card-style-a-cyan .btn {
+      margin-top: 20px;
+      background: rgba(0, 229, 255, 0.15);
+      color: #00e5ff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      text-align: center;
+      font-weight: 700;
+      border: 1px solid rgba(0, 229, 255, 0.6);
+    }
+
+    .card-style-a-green {
+      background: rgba(9, 10, 15, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(57, 255, 20, 0.4);
+      border-radius: 16px;
+      padding: 24px;
+      color: #ffffff;
+      width: 100%;
+      max-width: 320px;
+      text-align: left;
+      box-shadow: 0 0 15px rgba(57, 255, 20, 0.15);
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      cursor: pointer;
+    }
+
+    .card-style-a-green:hover {
+      transform: translateY(-5px);
+      border-color: rgba(57, 255, 20, 0.8);
+      box-shadow: 0 0 25px rgba(57, 255, 20, 0.35);
+    }
+
+    .card-style-a-green .tag {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #39ff14;
+      font-weight: 700;
+    }
+
+    .card-style-a-green h3 {
+      margin: 10px 0;
+      font-size: 20px;
+    }
+
+    .card-style-a-green p {
+      color: #a0aec0;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .card-style-a-green .btn {
+      margin-top: 20px;
+      background: rgba(57, 255, 20, 0.15);
+      color: #39ff14;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      text-align: center;
+      font-weight: 700;
+      border: 1px solid rgba(57, 255, 20, 0.6);
+    }
+
+    /* ==========================================================================
+       ESTILO B: GLASSMORPHISM SUTIL (Original)
+       ========================================================================== */
+    .card-style-b {
+      background: rgba(255, 255, 255, 0.02);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 24px;
+      color: #ffffff;
+      width: 100%;
+      max-width: 320px;
+      text-align: left;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+    }
+
+    .card-style-b:hover {
+      transform: translateY(-5px);
+      border-color: rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.04);
+      box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.55);
+    }
+
+    .card-style-b .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-style-b .tag {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #718096;
+      font-weight: 500;
+    }
+
+    .card-style-b .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .card-style-b.cyan .dot {
+      background-color: #00e5ff;
+      box-shadow: 0 0 8px #00e5ff;
+    }
+
+    .card-style-b.green .dot {
+      background-color: #39ff14;
+      box-shadow: 0 0 8px #39ff14;
+    }
+
+    .card-style-b h3 {
+      margin: 18px 0 10px 0;
+      font-size: 20px;
+      font-weight: 500;
+    }
+
+    .card-style-b p {
+      color: #718096;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .card-style-b:hover p {
+      color: #a0aec0;
+    }
+
+    .card-style-b .btn {
+      margin-top: 25px;
+      background: rgba(255, 255, 255, 0.03);
+      color: #e2e8f0;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .card-style-b.cyan:hover .btn {
+      border-color: rgba(0, 229, 255, 0.3);
+      color: #00e5ff;
+    }
+
+    .card-style-b.green:hover .btn {
+      border-color: rgba(57, 255, 20, 0.3);
+      color: #39ff14;
+    }
+
+    /* ==========================================================================
+       ESTILO C: GLOW GLASSMORPHISM HÍBRIDO (Eléctrico pero elegante)
+       ========================================================================== */
+    .card-style-c {
+      background: rgba(15, 18, 36, 0.45); /* Base tintada oscura */
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-radius: 20px;
+      padding: 24px;
+      color: #ffffff;
+      width: 100%;
+      max-width: 320px;
+      text-align: left;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Resplandores específicos y bordes con colores vibrantes */
+    .card-style-c.cyan {
+      border: 1px solid rgba(0, 229, 255, 0.25);
+      box-shadow: 
+        0 8px 32px 0 rgba(0, 0, 0, 0.4),
+        0 0 15px rgba(0, 229, 255, 0.05),
+        inset 0 0 12px rgba(0, 229, 255, 0.02);
+    }
+
+    .card-style-c.green {
+      border: 1px solid rgba(57, 255, 20, 0.25);
+      box-shadow: 
+        0 8px 32px 0 rgba(0, 0, 0, 0.4),
+        0 0 15px rgba(57, 255, 20, 0.05),
+        inset 0 0 12px rgba(57, 255, 20, 0.02);
+    }
+
+    /* Linterna interactiva trasera del estilo C */
+    .card-style-c::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      opacity: 0.15;
+      transition: opacity 0.5s ease;
+      pointer-events: none;
+    }
+
+    .card-style-c.cyan::before {
+      background: radial-gradient(300px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(0, 229, 255, 0.25), transparent 60%);
+    }
+
+    .card-style-c.green::before {
+      background: radial-gradient(300px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(57, 255, 20, 0.2), transparent 60%);
+    }
+
+    /* Efectos Hover del Estilo C */
+    .card-style-c:hover {
+      transform: translateY(-6px) scale(1.01);
+    }
+
+    .card-style-c.cyan:hover {
+      border-color: rgba(0, 229, 255, 0.6);
+      box-shadow: 
+        0 12px 40px 0 rgba(0, 0, 0, 0.5),
+        0 0 25px rgba(0, 229, 255, 0.2),
+        inset 0 0 15px rgba(0, 229, 255, 0.05);
+    }
+
+    .card-style-c.green:hover {
+      border-color: rgba(57, 255, 20, 0.6);
+      box-shadow: 
+        0 12px 40px 0 rgba(0, 0, 0, 0.5),
+        0 0 25px rgba(57, 255, 20, 0.18),
+        inset 0 0 15px rgba(57, 255, 20, 0.05);
+    }
+
+    .card-style-c:hover::before {
+      opacity: 0.35;
+    }
+
+    .card-style-c .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .card-style-c .tag {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-weight: 700;
+    }
+
+    .card-style-c.cyan .tag {
+      color: rgba(0, 229, 255, 0.85);
+      text-shadow: 0 0 6px rgba(0, 229, 255, 0.2);
+    }
+
+    .card-style-c.green .tag {
+      color: rgba(57, 255, 20, 0.85);
+      text-shadow: 0 0 6px rgba(57, 255, 20, 0.2);
+    }
+
+    .card-style-c .status-pill {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .card-style-c .status-pill::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .card-style-c.cyan .status-pill::before {
+      background: #00e5ff;
+      box-shadow: 0 0 6px #00e5ff;
+    }
+
+    .card-style-c.green .status-pill::before {
+      background: #39ff14;
+      box-shadow: 0 0 6px #39ff14;
+    }
+
+    .card-style-c h3 {
+      margin: 18px 0 10px 0;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .card-style-c p {
+      color: #94a3b8; /* Gris más claro y despierto */
+      font-size: 14px;
+      line-height: 1.6;
+      position: relative;
+      z-index: 2;
+      transition: color 0.3s ease;
+    }
+
+    .card-style-c:hover p {
+      color: #cbd5e1;
+    }
+
+    /* Botón gradiente iluminado para el Estilo C */
+    .card-style-c .btn {
+      margin-top: 25px;
+      padding: 11px 16px;
+      border-radius: 10px;
+      font-size: 12px;
+      text-align: center;
+      font-weight: 600;
+      cursor: pointer;
+      position: relative;
+      z-index: 2;
+      transition: all 0.3s ease;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+    }
+
+    .card-style-c.cyan:hover .btn {
+      background: linear-gradient(135deg, rgba(0, 229, 255, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%);
+      border-color: rgba(0, 229, 255, 0.6);
+      box-shadow: 0 0 12px rgba(0, 229, 255, 0.25);
+      color: #ffffff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    }
+
+    .card-style-c.green:hover .btn {
+      background: linear-gradient(135deg, rgba(57, 255, 20, 0.18) 0%, rgba(0, 229, 255, 0.15) 100%);
+      border-color: rgba(57, 255, 20, 0.6);
+      box-shadow: 0 0 12px rgba(57, 255, 20, 0.25);
+      color: #ffffff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    }
+
+    .verdict {
+      margin-top: 15px;
+      font-size: 13px;
+      color: #a0aec0;
+      line-height: 1.4;
+      text-align: center;
+      max-width: 320px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Selector de Estilo Visual</h1>
+    <p class="subtitle">Compara las tres propuestas estéticas en tu navegador. ¡Prueba mover tu mouse sobre el Estilo C!</p>
+
+    <div class="comparison-grid">
+      
+      <!-- COLUMNA ESTILO A -->
+      <div class="column">
+        <h2 class="section-title">Estilo A: Cyberpunk Activo <span>Enfoque 1</span></h2>
+        
+        <div class="cards-row">
+          <!-- Card de Astronomía -->
+          <div class="card-style-a-cyan">
+            <span class="tag">Módulo 01</span>
+            <h3>Observatorio Piura</h3>
+            <p>Cielo matemático e interactivo. Algoritmo de repetición espaciada activo.</p>
+            <div class="btn">Girar Ruleta</div>
+          </div>
+          
+          <!-- Card de Trading -->
+          <div class="card-style-a-green">
+            <span class="tag">Módulo 02</span>
+            <h3>Crypto Simulator</h3>
+            <p>Saldo virtual: $10,000 USDT. Gráficos de velas y transacciones en tiempo real.</p>
+            <div class="btn">Simular Compra</div>
+          </div>
+        </div>
+
+        <p class="verdict" style="margin-top: 30px;">
+          <strong>Características:</strong> Bordes neón sólidos y sombras de color permanentes. Muy directo, pero con peligro de fatiga visual a largo plazo.
+        </p>
+      </div>
+
+      <!-- COLUMNA ESTILO C (NUEVO HÍBRIDO) -->
+      <div class="column" style="background: rgba(168, 85, 247, 0.01); border-color: rgba(168, 85, 247, 0.08);">
+        <h2 class="section-title" style="color: #c084fc;">Estilo C: Glow Glassmorphism <span>Recomendado</span></h2>
+        
+        <div class="cards-row">
+          <!-- Card de Astronomía -->
+          <div class="card-style-c cyan">
+            <div class="header">
+              <span class="tag">Módulo 01</span>
+              <span class="status-pill">activo</span>
+            </div>
+            <h3>Observatorio Piura</h3>
+            <p>Cielo matemático e interactivo. Algoritmo de repetición espaciada activo.</p>
+            <div class="btn">Girar Ruleta</div>
+          </div>
+          
+          <!-- Card de Trading -->
+          <div class="card-style-c green">
+            <div class="header">
+              <span class="tag">Módulo 02</span>
+              <span class="status-pill">activo</span>
+            </div>
+            <h3>Crypto Simulator</h3>
+            <p>Saldo virtual: $10,000 USDT. Gráficos de velas y transacciones en tiempo real.</p>
+            <div class="btn">Simular Compra</div>
+          </div>
+        </div>
+
+        <p class="verdict" style="margin-top: 30px; color: #cbd5e1;">
+          <strong>Características:</strong> Fusiona el cristal con bordes neón continuos pero suavizados con transparencias (25% opacidad). Cuenta con un resplandor (glow) continuo de fondo y textos con mejor contraste para evitar la fatiga sin verse apagados.
+        </p>
+      </div>
+
+      <!-- COLUMNA ESTILO B -->
+      <div class="column">
+        <h2 class="section-title">Estilo B: Glassmorphism Sutil <span>Enfoque 2</span></h2>
+        
+        <div class="cards-row">
+          <!-- Card de Astronomía -->
+          <div class="card-style-b cyan">
+            <div class="header">
+              <span class="tag">Módulo 01</span>
+              <span class="dot"></span>
+            </div>
+            <h3>Observatorio Piura</h3>
+            <p>Cielo matemático e interactivo. Algoritmo de repetición espaciada activo.</p>
+            <div class="btn">Girar Ruleta</div>
+          </div>
+          
+          <!-- Card de Trading -->
+          <div class="card-style-b green">
+            <div class="header">
+              <span class="tag">Módulo 02</span>
+              <span class="dot"></span>
+            </div>
+            <h3>Crypto Simulator</h3>
+            <p>Saldo virtual: $10,000 USDT. Gráficos de velas y transacciones en tiempo real.</p>
+            <div class="btn">Simular Compra</div>
+          </div>
+        </div>
+
+        <p class="verdict" style="margin-top: 30px;">
+          <strong>Características:</strong> Estructura sobria con bordes grises oscuros muy tenues. El color solo se revela en el hover. Es el más elegante, pero puede sentirse sobrio de más.
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Efecto de brillo de ratón interactivo para las tarjetas del Estilo C y B
+    const cardElements = document.querySelectorAll('.card-style-c, .card-style-b');
+    cardElements.forEach(card => {
+      card.addEventListener('mousemove', e => {
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        card.style.setProperty('--mouse-x', `${x}px`);
+        card.style.setProperty('--mouse-y', `${y}px`);
+      });
+    });
+  </script>
+</body>
+</html>
