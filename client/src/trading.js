@@ -22,7 +22,13 @@ export async function loadCandlesChart() {
 
   try {
     const res = await fetch(`${API_URL}/candles?symbol=${activeAsset.symbol}&type=${activeAsset.type}`);
+    if (!res.ok) {
+      throw new Error(`Servidor respondió con código ${res.status}`);
+    }
     const candlesData = await res.json();
+    if (!Array.isArray(candlesData)) {
+      throw new Error(candlesData?.error || 'Los datos de velas no son válidos.');
+    }
 
     if (loader) loader.classList.add('hidden');
 

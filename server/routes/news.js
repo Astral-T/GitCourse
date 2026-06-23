@@ -3,7 +3,12 @@ import Parser from 'rss-parser';
 import db from '../db.js';
 
 const router = express.Router();
-const parser = new Parser();
+const parser = new Parser({
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/rss+xml, application/xml;q=0.9, image/webp, */*;q=0.8'
+  }
+});
 
 // Fuentes RSS seleccionadas por su alta calidad y consistencia
 const FEEDS = [
