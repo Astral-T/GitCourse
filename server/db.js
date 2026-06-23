@@ -20,38 +20,11 @@ const dbConfig = {
 let pool;
 
 export async function initDatabase() {
-  // 1. Intentar conectar a la base de datos destino para ver si existe
-  const tempPool = new pg.Pool({
-    user: dbConfig.user,
-    password: dbConfig.password,
-    host: dbConfig.host,
-    port: dbConfig.port,
-    database: 'postgres' // Conectarse a la db por defecto primero
-  });
-
-  try {
-    const res = await tempPool.query(
-      `SELECT 1 FROM pg_database WHERE datname = $1`,
-      [dbConfig.database]
-    );
-
-    if (res.rowCount === 0) {
-      console.log(`Base de datos '${dbConfig.database}' no existe. Creándola...`);
-      // Evitar transacciones para CREATE DATABASE
-      await tempPool.query(`CREATE DATABASE ${dbConfig.database}`);
-      console.log(`Base de datos '${dbConfig.database}' creada con éxito.`);
-    }
-  } catch (err) {
-    console.error('Error al verificar/crear la base de datos en Postgres:', err.message);
-  } finally {
-    await tempPool.end();
-  }
-
-  // 2. Conectar al pool principal apuntando a la base de datos del proyecto
+  // Conectar al pool principal apuntando a la base de datos
   pool = new pg.Pool(dbConfig);
   console.log(`Conectado a la base de datos Postgres: ${dbConfig.database}`);
 
-  // 3. Inicializar las tablas leyendo init.sql
+  // Inicializar las tablas leyendo init.sql
   try {
     const sqlPath = path.join(__dirname, 'db', 'init.sql');
     const sql = fs.readFileSync(sqlPath, 'utf8');
@@ -59,7 +32,7 @@ export async function initDatabase() {
     await pool.query(sql);
     console.log('Tablas inicializadas correctamente desde init.sql');
   } catch (err) {
-    console.error('Error al ejecutar el script de inicialización init.sql:', err.message);
+    console.error('Error al ejecutar el script de inicialización init.sql:', err);
   }
 }
 
