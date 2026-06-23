@@ -1,13 +1,374 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>client</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portal de Curiosidad y Simulación</title>
+</head>
+<body>
+  
+  <!-- Encabezado de la Aplicación -->
+  <header class="app-header">
+    <div class="header-logo">
+      <span class="logo-dot"></span>
+      <h1>PORTAL CURIOSIDAD</h1>
+    </div>
+    
+    <!-- Pestañas de Navegación -->
+    <nav class="app-nav">
+      <button class="nav-tab active" data-tab="learning">
+        <span class="tab-icon">🌌</span> Cosmos y Aprendizaje
+      </button>
+      <button class="nav-tab" data-tab="news">
+        <span class="tab-icon">📰</span> Innovación Científica
+      </button>
+      <button class="nav-tab" data-tab="trading">
+        <span class="tab-icon">📈</span> Simulador Financiero
+      </button>
+    </nav>
+
+    <!-- Estado de Conexión del Backend -->
+    <div class="connection-status" id="backend-status">
+      <span class="status-indicator"></span>
+      <span class="status-text">Conectando...</span>
+    </div>
+  </header>
+
+  <!-- Contenedor Principal de la App -->
+  <main class="app-container">
+
+    <!-- ==========================================
+         SECCIÓN 1: COSMOS Y APRENDIZAJE
+         ========================================== -->
+    <section class="tab-content active" id="tab-learning">
+      
+      <!-- Fila Superior: Observatorio Astronómico -->
+      <div class="observatory-row">
+        
+        <!-- Domo Celeste Canvas -->
+        <div class="sky-dome-card card-style-c cyan">
+          <div class="card-header">
+            <span class="tag">Observatorio Piura</span>
+            <span class="coordinates">LAT: -5.19° | LON: -80.63°</span>
+          </div>
+          <div class="sky-canvas-wrapper">
+            <canvas id="sky-dome" width="360" height="360"></canvas>
+          </div>
+          
+          <!-- Controles de simulación de Brújula y Elevación para Laptop -->
+          <div class="sky-controls">
+            <div class="control-group">
+              <label for="control-azimuth">Dirección (Brújula): <span id="val-azimuth">0</span>°</label>
+              <input type="range" id="control-azimuth" min="0" max="360" value="0">
+            </div>
+            <div class="control-group">
+              <label for="control-altitude">Elevación (Cabeza): <span id="val-altitude">0</span>°</label>
+              <input type="range" id="control-altitude" min="0" max="90" value="0">
+            </div>
+          </div>
+        </div>
+
+        <!-- Recomendaciones y Fase de la Luna -->
+        <div class="sky-info-card card-style-c cyan">
+          <div class="card-header">
+            <span class="tag">Fase de la Luna y Recomendaciones</span>
+          </div>
+          
+          <!-- Estado Lunar -->
+          <div class="moon-section">
+            <div class="moon-visual">
+              <div class="moon-sphere" id="moon-render">
+                <div class="moon-shadow" id="moon-shadow-overlay"></div>
+              </div>
+            </div>
+            <div class="moon-details">
+              <h3 id="moon-phase-name">Luna Llena</h3>
+              <p>Iluminación: <span id="moon-illumination">100</span>%</p>
+              <p>Próximo ciclo: <span id="moon-cycle-days">--</span> días</p>
+            </div>
+          </div>
+
+          <!-- Caja de sugerencias astronómicas en vivo -->
+          <div class="astronomy-recommendations">
+            <h4>Visibles hoy en Piura:</h4>
+            <ul id="visible-stars-list">
+              <li>Calculando astros...</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Fila Central/Inferior: Ruleta y Repetición Espaciada -->
+      <div class="learning-row">
+        
+        <!-- Ruleta Cultural de Países -->
+        <div class="roulette-card card-style-c cyan">
+          <div class="card-header">
+            <span class="tag">Ruleta Cultural</span>
+            <span class="status-pill">Gira para descubrir</span>
+          </div>
+          <div class="roulette-container">
+            <div class="roulette-wheel-wrapper">
+              <canvas id="roulette-wheel" width="280" height="280"></canvas>
+              <div class="roulette-pointer"></div>
+            </div>
+            <button class="btn btn-primary" id="btn-spin-roulette">Girar Ruleta</button>
+          </div>
+        </div>
+
+        <!-- Tarjetas de Repetición Espaciada -->
+        <div class="spaced-repetition-card card-style-c cyan">
+          <div class="card-header">
+            <span class="tag">Repetición Espaciada (SM-2)</span>
+            <div class="card-count-badge" id="cards-pending-count">0 Pendientes</div>
+          </div>
+          
+          <div class="flashcard-box" id="flashcard-container">
+            <!-- Estado Inicial: No hay tarjetas pendientes o iniciar reto -->
+            <div class="flashcard-state" id="fc-state-init">
+              <h3>Desafío Mental Diario</h3>
+              <p>Gira la ruleta para descubrir países y generar preguntas. El algoritmo rastreará tus conocimientos.</p>
+              <button class="btn" id="btn-start-reviews" disabled>Iniciar Repaso (0)</button>
+            </div>
+
+            <!-- Estado de Pregunta -->
+            <div class="flashcard-state hidden" id="fc-state-question">
+              <span class="fc-country-badge" id="fc-country-name">PERÚ</span>
+              <div class="fc-question-text" id="fc-question">¿Cuál es la capital histórica del Tahuantinsuyo?</div>
+              <button class="btn" id="btn-reveal-answer">Revelar Respuesta</button>
+            </div>
+
+            <!-- Estado de Respuesta y Calificación -->
+            <div class="flashcard-state hidden" id="fc-state-answer">
+              <span class="fc-country-badge" id="fc-country-name-ans">PERÚ</span>
+              <div class="fc-question-text" id="fc-question-dup">¿Cuál es la capital del Tahuantinsuyo?</div>
+              <div class="fc-answer-box">
+                <strong>Respuesta correcta:</strong>
+                <p id="fc-answer">Cusco</p>
+              </div>
+              <div class="fc-grade-selector">
+                <p>¿Qué tan fácil te resultó recordar?</p>
+                <div class="grade-buttons">
+                  <button class="btn btn-grade-red" data-grade="1">Difícil</button>
+                  <button class="btn btn-grade-yellow" data-grade="3">Medio</button>
+                  <button class="btn btn-grade-green" data-grade="5">Fácil</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Sección de Pasaporte Digital de Sellos -->
+      <div class="passport-section card-style-c cyan">
+        <div class="card-header">
+          <span class="tag">Pasaporte Digital de Curiosidades</span>
+          <span class="status-text">Consigue sellos respondiendo con nivel "Fácil"</span>
+        </div>
+        <div class="passport-stamps-grid" id="passport-stamps-container">
+          <!-- Renderizado dinámico de los sellos de países -->
+          <div class="loading-placeholder">Cargando pasaporte...</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==========================================
+         SECCIÓN 2: FEED DE NOTICIAS DE INNOVACIÓN
+         ========================================== -->
+    <section class="tab-content" id="tab-news">
+      <div class="news-header-actions">
+        <!-- Filtros de categoría -->
+        <div class="news-categories">
+          <button class="category-btn active" data-category="ALL">Todas</button>
+          <button class="category-btn" data-category="Ciencia">Ciencia</button>
+          <button class="category-btn" data-category="Ingeniería">Ingeniería</button>
+          <button class="category-btn" data-category="Tecnología">Tecnología</button>
+          <button class="category-btn" data-category="Biología">Biología</button>
+          <button class="category-btn" data-category="Economía">Economía y Mercados</button>
+        </div>
+        
+        <!-- Botón sincronizar manual -->
+        <button class="btn" id="btn-sync-news">🔄 Actualizar Feeds</button>
+      </div>
+
+      <!-- Feed asimétrico de noticias -->
+      <div class="news-grid" id="news-feed-container">
+        <div class="loading-placeholder">Cargando noticias científicas filtradas...</div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         SECCIÓN 3: SIMULADOR DE TRADING CRYPTO Y ACCIONES
+         ========================================== -->
+    <section class="tab-content" id="tab-trading">
+      
+      <!-- Fila superior: Resumen del Portafolio y Saldos -->
+      <div class="trading-overview-row">
+        <div class="overview-stat-card card-style-c green">
+          <span class="tag">Saldo Disponible</span>
+          <h2 id="trading-cash-balance">$10,000.00 USDT</h2>
+          <p>Efectivo virtual para operar</p>
+        </div>
+        <div class="overview-stat-card card-style-c green">
+          <span class="tag">Valor de Activos</span>
+          <h2 id="trading-assets-value">$0.00 USDT</h2>
+          <p>Tenencias valoradas al precio en vivo</p>
+        </div>
+        <div class="overview-stat-card card-style-c green">
+          <span class="tag">Valor Total del Portafolio</span>
+          <h2 id="trading-total-value">$10,000.00 USDT</h2>
+          <p>Saldo + Activos en tiempo real</p>
+        </div>
+      </div>
+
+      <!-- Fila principal: Gráfico y Panel de Compra/Venta -->
+      <div class="trading-main-row">
+        
+        <!-- Sección de Gráfico de Velas e Info Financiera -->
+        <div class="trading-chart-card card-style-c green">
+          <div class="chart-header">
+            <div class="active-asset-info">
+              <h3 id="active-asset-name">Bitcoin</h3>
+              <span id="active-asset-symbol">BTC</span>
+              <span class="asset-price-tag" id="active-asset-price">$0.00</span>
+            </div>
+            
+            <!-- Selector de Activo -->
+            <div class="asset-selector-dropdown">
+              <select id="select-active-asset">
+                <optgroup label="Criptomonedas (Binance)">
+                  <option value="BTC" data-type="crypto" data-name="Bitcoin" selected>Bitcoin (BTC)</option>
+                  <option value="ETH" data-type="crypto" data-name="Ethereum">Ethereum (ETH)</option>
+                  <option value="SOL" data-type="crypto" data-name="Solana">Solana (SOL)</option>
+                  <option value="ADA" data-type="crypto" data-name="Cardano">Cardano (ADA)</option>
+                  <option value="PEPE" data-type="crypto" data-name="Pepe Coin">PEPE (Moneda Volátil)</option>
+                  <option value="DOGE" data-type="crypto" data-name="Dogecoin">Dogecoin (DOGE)</option>
+                  <option value="SHIB" data-type="crypto" data-name="Shiba Inu">Shiba Inu (SHIB)</option>
+                </optgroup>
+                <optgroup label="Acciones Tecnológicas (Yahoo Finance)">
+                  <option value="AAPL" data-type="stock" data-name="Apple Inc.">Apple (AAPL)</option>
+                  <option value="NVDA" data-type="stock" data-name="NVIDIA Corp.">NVIDIA (NVDA)</option>
+                  <option value="TSLA" data-type="stock" data-name="Tesla Inc.">Tesla (TSLA)</option>
+                  <option value="MSFT" data-type="stock" data-name="Microsoft Corp.">Microsoft (MSFT)</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
+
+          <!-- Contenedor del gráfico financiero -->
+          <div class="chart-container-wrapper">
+            <div id="financial-candles-chart"></div>
+            <div class="chart-loading" id="chart-loader">Cargando gráfico de velas...</div>
+          </div>
+        </div>
+
+        <!-- Panel de Operación (Compra / Venta) -->
+        <div class="trading-panel-card card-style-c green">
+          <div class="card-header">
+            <span class="tag">Ejecutar Operación</span>
+          </div>
+
+          <div class="trading-panel-actions">
+            <!-- Tabs de Compra / Venta -->
+            <div class="order-action-tabs">
+              <button class="order-tab active" id="order-tab-buy">COMPRAR</button>
+              <button class="order-tab" id="order-tab-sell">VENDER</button>
+            </div>
+
+            <!-- Formulario de orden -->
+            <div class="order-form">
+              <div class="form-row">
+                <label>Activo Seleccionado:</label>
+                <strong id="order-asset-display">BTC - Bitcoin</strong>
+              </div>
+              <div class="form-row">
+                <label>Precio Estimado:</label>
+                <span id="order-price-display">$0.00</span>
+              </div>
+              <div class="form-row">
+                <label for="order-amount">Cantidad a operar:</label>
+                <input type="number" id="order-amount" min="0.000001" step="any" placeholder="Ingresa cantidad (Ej. 0.5)">
+              </div>
+              
+              <div class="form-row cost-row">
+                <label>Total de la operación:</label>
+                <strong id="order-total-cost">$0.00 USDT</strong>
+              </div>
+
+              <button class="btn btn-green btn-full-width" id="btn-submit-order">Colocar Orden de Compra</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Fila inferior: Tenencias actuales e Historial -->
+      <div class="trading-tables-row">
+        
+        <!-- Tabla de Portafolio / Tenencias -->
+        <div class="holdings-card card-style-c green">
+          <div class="card-header">
+            <span class="tag">Mis Posesiones de Activos</span>
+          </div>
+          <div class="table-wrapper">
+            <table class="trading-table">
+              <thead>
+                <tr>
+                  <th>Símbolo</th>
+                  <th>Nombre</th>
+                  <th>Cantidad</th>
+                  <th>Precio Compra Prom.</th>
+                  <th>Precio Actual</th>
+                  <th>Valorizado</th>
+                  <th>Rendimiento</th>
+                </tr>
+              </thead>
+              <tbody id="portfolio-holdings-table">
+                <tr>
+                  <td colspan="7" class="empty-table-text">No tienes activos comprados en tu portafolio aún.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tabla de Historial de Operaciones -->
+        <div class="history-card card-style-c green">
+          <div class="card-header">
+            <span class="tag">Historial de Transacciones</span>
+          </div>
+          <div class="table-wrapper">
+            <table class="trading-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Operación</th>
+                  <th>Activo</th>
+                  <th>Cantidad</th>
+                  <th>Precio Ejecutado</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody id="trading-history-table">
+                <tr>
+                  <td colspan="6" class="empty-table-text">Sin transacciones registradas.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Carga de las rutinas de front-end unificadas en el bundle de Vite -->
+  <script type="module" src="/src/main.js"></script>
+</body>
 </html>
