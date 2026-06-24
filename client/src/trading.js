@@ -47,7 +47,7 @@ export async function loadCandlesChart() {
       }],
       chart: {
         type: 'candlestick',
-        height: '100%',
+        height: 440,
         background: 'transparent',
         toolbar: {
           show: true,

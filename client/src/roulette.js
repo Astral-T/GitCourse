@@ -5,7 +5,12 @@ const RULETA_COUNTRIES = [
   { code: 'JPN', name: 'Japón', color: '#00e5ff' },
   { code: 'DEU', name: 'Alemania', color: '#a855f7' },
   { code: 'EGY', name: 'Egipto', color: '#ffb900' },
-  { code: 'BRA', name: 'Brasil', color: '#39ff14' }
+  { code: 'BRA', name: 'Brasil', color: '#39ff14' },
+  { code: 'USA', name: 'Estados Unidos', color: '#ff7675' },
+  { code: 'FRA', name: 'Francia', color: '#74b9ff' },
+  { code: 'IND', name: 'India', color: '#ff76ff' },
+  { code: 'ZAF', name: 'Sudáfrica', color: '#00cec9' },
+  { code: 'AUS', name: 'Australia', color: '#fdcb6e' }
 ];
 
 const GLOBE_COUNTRIES = [

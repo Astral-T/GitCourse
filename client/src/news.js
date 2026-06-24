@@ -162,4 +162,11 @@ export function initNewsEvents() {
       modal.classList.add('hidden');
     });
   }
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.classList.add('hidden');
+      }
+    });
+  }
 }

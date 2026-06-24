@@ -579,19 +579,23 @@ export function updateAstronomyPanel(targetedAstro, moonPhaseData) {
   const illuminationEl = document.getElementById('moon-illumination');
   const cycleDaysLabel = document.getElementById('moon-cycle-days');
   const recommendationsBox = document.querySelector('.astronomy-recommendations h4');
+  const statsWrapper = document.getElementById('moon-stats-wrapper');
+  const astroDescEl = document.getElementById('astro-description');
 
-  if (!moonRenderEl || !phaseNameEl || !illuminationEl || !cycleDaysEl) return;
+  if (!moonRenderEl || !phaseNameEl || !illuminationEl || !cycleDaysLabel) return;
 
   if (targetedAstro && ASTRO_DETAILS[targetedAstro.name || targetedAstro.id]) {
     const detail = ASTRO_DETAILS[targetedAstro.name || targetedAstro.id];
     
     // Cambiar texto
     phaseNameEl.innerHTML = `<span class="txt-cyan">Enfoque: ${detail.name}</span>`;
-    illuminationEl.parentNode.innerHTML = `<p>${detail.desc}</p>`;
     
-    if (cycleDaysLabel) {
-      cycleDaysLabel.parentNode.style.display = 'none'; // ocultar fila de días restantes
+    if (statsWrapper) statsWrapper.classList.add('hidden');
+    if (astroDescEl) {
+      astroDescEl.textContent = detail.desc;
+      astroDescEl.classList.remove('hidden');
     }
+    
     if (recommendationsBox) {
       recommendationsBox.textContent = "Apuntando en Piura:";
     }
@@ -624,17 +628,12 @@ export function updateAstronomyPanel(targetedAstro, moonPhaseData) {
     // Si no apunta a nada, re-mostrar la Fase Lunar por defecto
     phaseNameEl.textContent = moonPhaseData.phaseName;
     
-    const illumItem = document.getElementById('moon-illumination');
-    if (illumItem) {
-      illumItem.parentNode.innerHTML = `Iluminación: <span id="moon-illumination">${moonPhaseData.illumination}</span>%`;
-    } else {
-      illuminationEl.innerHTML = `${moonPhaseData.illumination}`;
-    }
+    if (statsWrapper) statsWrapper.classList.remove('hidden');
+    if (astroDescEl) astroDescEl.classList.add('hidden');
 
-    if (cycleDaysLabel) {
-      cycleDaysLabel.parentNode.style.display = 'block';
-      cycleDaysLabel.textContent = moonPhaseData.daysToNext;
-    }
+    illuminationEl.textContent = moonPhaseData.illumination;
+    cycleDaysLabel.textContent = moonPhaseData.daysToNext;
+
     if (recommendationsBox) {
       recommendationsBox.textContent = "Visibles hoy en Piura:";
     }

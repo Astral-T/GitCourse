@@ -92,8 +92,11 @@ async function refreshNews() {
       let feedSaved = 0;
       
       for (const item of parsedFeed.items) {
-        const title = item.title;
-        const summary = item.contentSnippet || item.content || '';
+        const title = item.title || '';
+        let summary = item.contentSnippet || item.content || item.summary || '';
+        if (!summary || summary.trim() === '') {
+          summary = `Este artículo publicado en ${feed.source} describe las últimas investigaciones y desarrollos científicos sobre "${title}". Haz clic a continuación para visitar la fuente original.`;
+        }
         const url = item.link;
         const publishedAt = item.pubDate ? new Date(item.pubDate) : new Date();
 
