@@ -315,7 +315,31 @@ export function initGlobe3D(canvas) {
   };
 
   canvas.addEventListener('mousedown', e => startDrag(e.clientX, e.clientY));
-  canvas.addEventListener('mousemove', e => moveDrag(e.clientX, e.clientY));
+  canvas.addEventListener('mousemove', e => {
+    if (isDraggingGlobe) {
+      moveDrag(e.clientX, e.clientY);
+    } else {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const clickX = (e.clientX - rect.left) * scaleX;
+      const clickY = (e.clientY - rect.top) * scaleY;
+      
+      let isNearCountry = false;
+      projectedDots.forEach(dot => {
+        const dist = Math.hypot(dot.x - clickX, dot.y - clickY);
+        if (dist < 18) {
+          isNearCountry = true;
+        }
+      });
+      
+      if (isNearCountry) {
+        canvas.style.cursor = 'pointer';
+      } else {
+        canvas.style.cursor = 'grab';
+      }
+    }
+  });
   window.addEventListener('mouseup', endDrag);
 
   canvas.addEventListener('touchstart', e => {
@@ -329,8 +353,10 @@ export function initGlobe3D(canvas) {
   // Click en el canvas para seleccionar país
   canvas.addEventListener('click', e => {
     const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clickX = (e.clientX - rect.left) * scaleX;
+    const clickY = (e.clientY - rect.top) * scaleY;
 
     // Buscar si el click colisiona con algún dot de país proyectado
     let clickedCountry = null;

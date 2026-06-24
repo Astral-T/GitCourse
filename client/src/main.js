@@ -6,7 +6,8 @@ import {
   updateMoonVisual, 
   drawSkyDome,
   updateAstronomyPanel,
-  initSkyDragControls
+  initSkyDragControls,
+  initStellarViewer
 } from './astronomy.js';
 
 import { 
@@ -187,6 +188,75 @@ function initAstronomy() {
     });
   }
 
+  // Lógica de disponibilidad del Visor Estelar (bloqueado de día)
+  const btnStellar = document.getElementById('btn-activate-stellar-viewer');
+  const lockText = document.getElementById('stellar-viewer-lock-text');
+  const stellarOverlay = document.getElementById('stellar-viewer-overlay');
+  const stellarCanvas = document.getElementById('stellar-viewer-canvas');
+  const btnCloseStellar = document.getElementById('btn-close-stellar-viewer');
+  const hudAzimuth = document.getElementById('stellar-hud-azimuth');
+  const hudAltitude = document.getElementById('stellar-hud-altitude');
+
+  window.bypassNightCheck = false;
+  window.checkStellarViewer = checkStellarViewerAvailability;
+
+  function checkStellarViewerAvailability() {
+    if (!btnStellar) return;
+    const now = new Date();
+    const hour = now.getHours() + now.getMinutes() / 60;
+    const isNightTime = window.bypassNightCheck || (hour >= 18.5 || hour < 6.0); // 18:30 a 06:00
+    
+    if (isNightTime) {
+      btnStellar.removeAttribute('disabled');
+      btnStellar.style.opacity = '1';
+      btnStellar.style.cursor = 'pointer';
+      if (lockText) lockText.innerHTML = '';
+    } else {
+      btnStellar.setAttribute('disabled', 'true');
+      btnStellar.style.opacity = '0.4';
+      btnStellar.style.cursor = 'not-allowed';
+      if (lockText) {
+        lockText.innerHTML = `⚠️ Disponible solo en horario nocturno (6:30 PM a 6:00 AM)`;
+      }
+    }
+  }
+
+  checkStellarViewerAvailability();
+
+  // Integración y Eventos del Visor Estelar
+  let stellarController = null;
+  if (btnStellar && stellarOverlay && stellarCanvas && btnCloseStellar) {
+    stellarController = initStellarViewer(stellarCanvas, (az, alt) => {
+      if (hudAzimuth) hudAzimuth.textContent = Math.round(az);
+      if (hudAltitude) hudAltitude.textContent = Math.round(alt);
+    });
+
+    btnStellar.addEventListener('click', () => {
+      const now = new Date();
+      const hour = now.getHours() + now.getMinutes() / 60;
+      const isNightTime = window.bypassNightCheck || (hour >= 18.5 || hour < 6.0);
+      if (!isNightTime) {
+        alert('El Visor Estelar solo está disponible de 6:30 PM a 6:00 AM.');
+        return;
+      }
+
+      stellarOverlay.classList.remove('hidden');
+      const currentAz = parseFloat(azimuthSlider.value);
+      const currentAlt = parseFloat(altitudeSlider.value);
+      stellarController.start(currentAz, currentAlt);
+    });
+
+    btnCloseStellar.addEventListener('click', () => {
+      stellarController.stop();
+      stellarOverlay.classList.add('hidden');
+      
+      const finalCoords = stellarController.getCoordinates();
+      azimuthSlider.value = Math.round(finalCoords.az);
+      altitudeSlider.value = Math.round(finalCoords.alt);
+      updateSky();
+    });
+  }
+
   window.addEventListener('resize', handleResize);
 
   // Lógica del giroscopio (AR)
@@ -244,9 +314,6 @@ async function initApp() {
   console.log('Iniciando Portal de Curiosidad y Simulación (Fase 2)...');
 
   initTabs();
-
-  const isOnline = await checkBackendConnection();
-
   initAstronomy();
 
   // Inicializar la Ruleta
@@ -302,7 +369,7 @@ async function initApp() {
     if (btnFullscreenGlobe) {
       btnFullscreenGlobe.addEventListener('click', () => {
         const isFull = document.body.classList.toggle('globe-fullscreen-active');
-        btnFullscreenGlobe.textContent = isFull ? 'Cerrar Globo 3D' : 'Pantalla Completa ⛶';
+        btnFullscreenGlobe.textContent = isFull ? '✖' : 'Pantalla Completa ⛶';
         
         if (isFull) {
           globeCanvas.width = Math.min(window.innerWidth, window.innerHeight) * 0.85;
@@ -325,9 +392,12 @@ async function initApp() {
   initNewsEvents();
   initTradingEvents();
 
-  if (isOnline) {
-    refreshLearningData();
-  }
+  // Comprobar conexión y cargar datos de forma asíncrona
+  checkBackendConnection().then(isOnline => {
+    if (isOnline) {
+      refreshLearningData();
+    }
+  });
 
   // Spotlight Glow effect
   const staticCards = document.querySelectorAll('.card-style-c');
@@ -342,4 +412,8 @@ async function initApp() {
   });
 }
 
-window.addEventListener('DOMContentLoaded', initApp);
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}

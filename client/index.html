@@ -4,6 +4,35 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    window.addEventListener('error', function(event) {
+      const errorBanner = document.createElement('div');
+      errorBanner.style.position = 'fixed';
+      errorBanner.style.top = '0';
+      errorBanner.style.left = '0';
+      errorBanner.style.width = '100%';
+      errorBanner.style.background = '#ff3366';
+      errorBanner.style.color = 'white';
+      errorBanner.style.padding = '20px';
+      errorBanner.style.zIndex = '99999';
+      errorBanner.innerHTML = '<strong>Error de JS:</strong> ' + event.message + ' en ' + event.filename + ':' + event.lineno;
+      document.body.appendChild(errorBanner);
+    });
+    window.addEventListener('unhandledrejection', function(event) {
+      const errorBanner = document.createElement('div');
+      errorBanner.style.position = 'fixed';
+      errorBanner.style.top = '0';
+      errorBanner.style.left = '0';
+      errorBanner.style.width = '100%';
+      errorBanner.style.background = '#ff3366';
+      errorBanner.style.color = 'white';
+      errorBanner.style.padding = '20px';
+      errorBanner.style.zIndex = '99999';
+      errorBanner.innerHTML = '<strong>Promesa rechazada:</strong> ' + event.reason;
+      document.body.appendChild(errorBanner);
+    });
+  </script>
+  <link rel="stylesheet" href="/src/style.css" />
   <title>Portal de Curiosidad y Simulación</title>
 </head>
 <body>
@@ -75,6 +104,8 @@
               <label for="control-altitude">Elevación (Cabeza): <span id="val-altitude">0</span>°</label>
               <input type="range" id="control-altitude" min="0" max="90" value="0">
             </div>
+            <button class="btn" id="btn-activate-stellar-viewer" style="width: 100%; border-color: rgba(0, 229, 255, 0.4); background: rgba(0, 229, 255, 0.05); color: var(--cyan-neon); margin-top: 10px;">🌌 Activar Visor Estelar</button>
+            <span id="stellar-viewer-lock-text" style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 4px; display: block;"></span>
           </div>
         </div>
 
@@ -292,7 +323,8 @@
               </select>
             </div>
           </div>
-
+          </div> <!-- Closes chart-header -->
+          
           <!-- Contenedor del gráfico financiero -->
           <div class="chart-container-wrapper">
             <div id="financial-candles-chart"></div>
@@ -476,6 +508,19 @@
           <a href="#" target="_blank" class="btn btn-primary" id="news-modal-link">Visitar Sitio Original (Anuncios Externos)</a>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Visor Estelar Inmersivo a Pantalla Completa -->
+  <div class="stellar-viewer-overlay hidden" id="stellar-viewer-overlay">
+    <canvas id="stellar-viewer-canvas"></canvas>
+    <button class="stellar-viewer-close" id="btn-close-stellar-viewer" title="Cerrar Visor Estelar">&times;</button>
+    
+    <!-- HUD Overlay -->
+    <div class="stellar-viewer-hud">
+      <p>VISOR ESTELAR INMERSIVO (PIURA)</p>
+      <p>AZIMUT: <span id="stellar-hud-azimuth">0</span>° | ELEVACIÓN: <span id="stellar-hud-altitude">0</span>°</p>
+      <span class="hud-instruction">Arrastra el mouse para explorar el firmamento en tiempo real</span>
     </div>
   </div>
 

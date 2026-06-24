@@ -75,6 +75,29 @@ function detectCategory(title, summary, defaultCat) {
   return defaultCat;
 }
 
+function cleanSummary(text) {
+  if (!text) return '';
+  let cleaned = text;
+  // Remove Nature specific prefix
+  cleaned = cleaned.replace(/^Nature,\s+Published\s+online:\s+.*?;/i, '');
+  cleaned = cleaned.replace(/doi:\s*[^\s]+/i, '');
+  // Remove HTML tags
+  cleaned = cleaned.replace(/<[^>]*>/g, '');
+  // Decode common HTML entities
+  cleaned = cleaned.replace(/&nbsp;/g, ' ')
+                   .replace(/&amp;/g, '&')
+                   .replace(/&lt;/g, '<')
+                   .replace(/&gt;/g, '>')
+                   .replace(/&quot;/g, '"')
+                   .replace(/&#8217;/g, "'")
+                   .replace(/&#8220;/g, '"')
+                   .replace(/&#8221;/g, '"')
+                   .replace(/&#8211;/g, '-');
+  
+  cleaned = cleaned.trim();
+  return cleaned;
+}
+
 // Verifica si un texto contiene palabras políticas/legales prohibidas
 function isForbidden(title, summary) {
   const text = `${title} ${summary || ''}`.toLowerCase();
@@ -93,9 +116,18 @@ async function refreshNews() {
       
       for (const item of parsedFeed.items) {
         const title = item.title || '';
-        let summary = item.contentSnippet || item.content || item.summary || '';
+        let rawSummary = item.contentSnippet || 
+                           item.content || 
+                           item.summary || 
+                           item.description || 
+                           item['content:encodedSnippet'] || 
+                           item['content:encoded'] || 
+                           '';
+        
+        let summary = cleanSummary(rawSummary);
+        
         if (!summary || summary.trim() === '') {
-          summary = `Este artículo publicado en ${feed.source} describe las últimas investigaciones y desarrollos científicos sobre "${title}". Haz clic a continuación para visitar la fuente original.`;
+          summary = `Este artículo describe los últimos avances científicos y tecnológicos referentes a "${title}". Para conocer todos los detalles e implicaciones de esta investigación, haz clic en el enlace inferior para visitar el artículo original en ${feed.source}.`;
         }
         const url = item.link;
         const publishedAt = item.pubDate ? new Date(item.pubDate) : new Date();
