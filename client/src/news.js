@@ -12,7 +12,6 @@ export async function loadNews() {
   try {
     const response = await fetch(API_URL);
     allNews = await response.json();
-    
     renderNewsFeed();
   } catch (err) {
     console.error('Error al cargar las noticias:', err);
@@ -31,7 +30,6 @@ export function renderNewsFeed() {
 
   container.innerHTML = '';
 
-  // Filtrar según categoría seleccionada
   const filtered = currentCategory === 'ALL' 
     ? allNews 
     : allNews.filter(item => item.category === currentCategory);
@@ -39,7 +37,7 @@ export function renderNewsFeed() {
   if (filtered.length === 0) {
     container.innerHTML = `
       <div class="loading-placeholder">
-        No se encontraron noticias en la categoría '${currentCategory}'. Intenta actualizar los feeds.
+        No se encontraron noticias en la categoría '${currentCategory}'. Intenta actualizar los feeds en la esquina superior.
       </div>
     `;
     return;
@@ -48,6 +46,7 @@ export function renderNewsFeed() {
   filtered.forEach(item => {
     const card = document.createElement('div');
     card.className = 'news-card card-style-c purple';
+    card.style.cursor = 'pointer';
     
     const pubDate = item.published_at ? new Date(item.published_at).toLocaleDateString('es-PE', {
       day: 'numeric',
@@ -61,11 +60,16 @@ export function renderNewsFeed() {
         <span class="news-category-badge" data-cat="${item.category}">${item.category}</span>
       </div>
       <h3>${item.title}</h3>
-      <p>${item.summary ? item.summary : 'Descubre los detalles de este avance tecnológico accediendo a la fuente oficial...'}</p>
-      <a href="${item.url}" target="_blank" class="news-link">Leer artículo completo ➔</a>
+      <p>${item.summary ? item.summary : 'Descubre los detalles de este avance científico en nuestro visor integrado...'}</p>
+      <span class="news-link-btn">Ver Resumen Completo ➔</span>
     `;
 
-    // Añadir efecto de brillo interactivo al mover el ratón (Spotlight Glow)
+    // Abrir modal de resumen al hacer click en cualquier parte de la tarjeta
+    card.addEventListener('click', () => {
+      openNewsModal(item);
+    });
+
+    // Spotlight Glow
     card.addEventListener('mousemove', e => {
       const rect = card.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -78,23 +82,51 @@ export function renderNewsFeed() {
   });
 }
 
-// 3. INICIALIZAR EVENTOS DE FILTROS Y ACTUALIZACIÓN
+// 3. ABRIR MODAL CON RESUMEN EN LA MISMA APP
+function openNewsModal(item) {
+  const modal = document.getElementById('news-summary-modal');
+  if (!modal) return;
+
+  const pubDate = item.published_at ? new Date(item.published_at).toLocaleDateString('es-PE', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  }) : 'Hoy';
+
+  document.getElementById('news-modal-category').textContent = item.category;
+  document.getElementById('news-modal-title').textContent = item.title;
+  document.getElementById('news-modal-source').textContent = `📡 Fuente: ${item.source}`;
+  document.getElementById('news-modal-date').textContent = pubDate;
+
+  // Rellenar cuerpo del resumen
+  const summaryContent = document.getElementById('news-modal-summary-content');
+  if (summaryContent) {
+    summaryContent.innerHTML = `
+      <p class="summary-paragraph">${item.summary || 'Resumen de avance e investigación científica.'}</p>
+      <p class="summary-disclaimer">🛡️ Resumen optimizado por el Portal. Libre de anuncios invasivos de terceros.</p>
+    `;
+  }
+
+  const linkEl = document.getElementById('news-modal-link');
+  if (linkEl) {
+    linkEl.href = item.url;
+  }
+
+  modal.classList.remove('hidden');
+}
+
+// 4. INICIALIZAR EVENTOS
 export function initNewsEvents() {
-  // Configurar listeners de categorías
   const filterButtons = document.querySelectorAll('.category-btn');
   filterButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      // Quitar active de todos
       filterButtons.forEach(b => b.classList.remove('active'));
-      // Añadir active a este
       btn.classList.add('active');
-
       currentCategory = btn.getAttribute('data-category');
       renderNewsFeed();
     });
   });
 
-  // Configurar botón de refresco manual
   const btnSync = document.getElementById('btn-sync-news');
   if (btnSync) {
     btnSync.addEventListener('click', async () => {
@@ -103,25 +135,31 @@ export function initNewsEvents() {
       
       const container = document.getElementById('news-feed-container');
       if (container) {
-        container.innerHTML = `<div class="loading-placeholder">Sincronizando y depurando feeds RSS en vivo...</div>`;
+        container.innerHTML = `<div class="loading-placeholder">Sincronizando feeds en paralelo...</div>`;
       }
 
       try {
         const response = await fetch(`${API_URL}/refresh`, { method: 'POST' });
         const data = await response.json();
-        
         allNews = data.news;
         renderNewsFeed();
-        
-        console.log(`Feeds RSS sincronizados. ${data.new_articles} nuevos artículos.`);
       } catch (err) {
         console.error('Error al forzar refresco de noticias:', err);
         alert('Ocurrió un error al intentar descargar feeds RSS.');
-        loadNews(); // recargar caché vieja
+        loadNews();
       } finally {
         btnSync.disabled = false;
         btnSync.textContent = '🔄 Actualizar Feeds';
       }
+    });
+  }
+
+  // Cerrar modal de noticias
+  const modal = document.getElementById('news-summary-modal');
+  const btnClose = document.getElementById('btn-close-news-modal');
+  if (btnClose && modal) {
+    btnClose.addEventListener('click', () => {
+      modal.classList.add('hidden');
     });
   }
 }

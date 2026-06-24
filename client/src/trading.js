@@ -10,6 +10,7 @@ let activeAsset = {
   price: 0
 };
 let activeOrderAction = 'BUY'; // 'BUY' o 'SELL'
+let activeInterval = '1d'; // '15m' | '1h' | '1d'
 let chartInstance = null;
 
 // 1. OBTENER VELAS HISTÓRICAS Y DIBUJAR GRÁFICO
@@ -18,10 +19,13 @@ export async function loadCandlesChart() {
   const loader = document.getElementById('chart-loader');
   if (!chartContainer) return;
 
-  if (loader) loader.classList.remove('hidden');
+  if (loader) {
+    loader.textContent = 'Cargando velas financieras...';
+    loader.classList.remove('hidden');
+  }
 
   try {
-    const res = await fetch(`${API_URL}/candles?symbol=${activeAsset.symbol}&type=${activeAsset.type}`);
+    const res = await fetch(`${API_URL}/candles?symbol=${activeAsset.symbol}&type=${activeAsset.type}&interval=${activeInterval}`);
     if (!res.ok) {
       throw new Error(`Servidor respondió con código ${res.status}`);
     }
@@ -57,7 +61,7 @@ export async function loadCandlesChart() {
             reset: true
           }
         },
-        foreColor: '#64748b' // color de fuente de ejes
+        foreColor: '#64748b'
       },
       grid: {
         borderColor: 'rgba(255, 255, 255, 0.03)',
@@ -71,6 +75,7 @@ export async function loadCandlesChart() {
       xaxis: {
         type: 'datetime',
         labels: {
+          datetimeUTC: false, // Utilizar zona horaria local (importante para 15m/1h)
           style: {
             colors: '#64748b',
             fontFamily: 'Plus Jakarta Sans'
@@ -120,7 +125,7 @@ export async function loadCandlesChart() {
   } catch (err) {
     console.error('Error al cargar datos del gráfico financiero:', err);
     if (loader) {
-      loader.textContent = 'Error al cargar velas financieras.';
+      loader.innerHTML = `<span class="txt-red">⚠️ Datos temporales de mercado no disponibles (Yahoo Finance límite). Usando simulación local.</span>`;
       loader.classList.remove('hidden');
     }
   }
@@ -343,4 +348,15 @@ export function initTradingEvents() {
   if (btnSubmit) {
     btnSubmit.addEventListener('click', submitOrder);
   }
+
+  // Configurar selectores de intervalo (15m, 1h, 1d)
+  const intervalTabs = document.querySelectorAll('.interval-tab');
+  intervalTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      intervalTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      activeInterval = tab.getAttribute('data-interval');
+      loadCandlesChart();
+    });
+  });
 }

@@ -14,8 +14,8 @@ function getBinanceSymbol(symbol) {
   return `${symbol}USDT`;
 }
 
-// Función generadora de velas de respaldo (mock) para acciones en caso de error de Yahoo Finance
-function generateMockCandles(symbol) {
+// Función generadora de velas de respaldo (mock) para acciones en caso de error de Yahoo Finance o fuera de horario
+function generateMockCandles(symbol, interval = '1d') {
   const basePrices = {
     AAPL: 180,
     NVDA: 120,
@@ -26,20 +26,24 @@ function generateMockCandles(symbol) {
   const candles = [];
   const today = new Date();
   
+  // Determinar espaciado en milisegundos según el intervalo
+  let stepMs = 24 * 60 * 60 * 1000; // 1d por defecto
+  if (interval === '15m') stepMs = 15 * 60 * 1000;
+  else if (interval === '1h') stepMs = 60 * 60 * 1000;
+
   let currentPrice = basePrice;
   for (let i = 60; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(today.getDate() - i);
+    const timestamp = today.getTime() - (i * stepMs);
     
     // Caminata aleatoria con leve tendencia alcista
-    const change = (Math.random() - 0.48) * 0.03;
+    const change = (Math.random() - 0.48) * 0.015;
     const open = currentPrice;
     const close = currentPrice * (1 + change);
-    const high = Math.max(open, close) * (1 + Math.random() * 0.012);
-    const low = Math.min(open, close) * (1 - Math.random() * 0.012);
+    const high = Math.max(open, close) * (1 + Math.random() * 0.008);
+    const low = Math.min(open, close) * (1 - Math.random() * 0.008);
     
     candles.push({
-      x: date.getTime(),
+      x: timestamp,
       y: [
         parseFloat(open.toFixed(2)),
         parseFloat(high.toFixed(2)),
@@ -94,8 +98,8 @@ router.get('/candles', async (req, res) => {
   try {
     if (type === 'crypto') {
       const bSymbol = getBinanceSymbol(symbol);
-      // Intervalos Binance: 1h, 1d, etc.
-      const bInterval = interval === '1d' ? '1d' : '1h';
+      // Mapear intervalos de Binance: 15m, 1h, 1d
+      const bInterval = ['15m', '1h', '1d'].includes(interval) ? interval : '1d';
       const url = `https://api.binance.com/api/v3/klines?symbol=${bSymbol}&interval=${bInterval}&limit=60`;
       
       const response = await fetch(url);
@@ -115,39 +119,56 @@ router.get('/candles', async (req, res) => {
 
       res.json(candles);
     } else {
-      // Acciones mediante yahooFinance.historical
-      // Para yahooFinance, definimos rango de fecha. Pediremos últimos 60 días.
+      // Acciones mediante yahooFinance.chart o historical
       const today = new Date();
       const startDate = new Date();
-      startDate.setDate(today.getDate() - 90);
-
-      const period1 = startDate.toISOString().split('T')[0];
-      const period2 = today.toISOString().split('T')[0];
-
-      // Intervalo en Yahoo: '1d', '1wk', '1mo'
-      const yInterval = '1d';
+      
+      let daysBack = 90;
+      if (interval === '15m') daysBack = 2;
+      else if (interval === '1h') daysBack = 7;
+      
+      startDate.setDate(today.getDate() - daysBack);
 
       try {
-        const data = await yahooFinance.historical(symbol, {
-          period1,
-          period2,
-          interval: yInterval
-        });
+        if (interval === '15m' || interval === '1h') {
+          // Utilizar chart para intervalos de intradía
+          const result = await yahooFinance.chart(symbol, {
+            period1: startDate,
+            period2: today,
+            interval: interval
+          });
 
-        const candles = data.map(item => ({
-          x: new Date(item.date).getTime(),
-          y: [
-            item.open,
-            item.high,
-            item.low,
-            item.close
-          ]
-        }));
+          if (!result || !result.quotes || result.quotes.length === 0) {
+            throw new Error(`Yahoo Finance chart no devolvió datos para ${symbol}`);
+          }
 
-        res.json(candles);
+          // Filtrar cotizaciones válidas y mapear a formato de velas
+          const candles = result.quotes
+            .filter(q => q.open !== null && q.high !== null && q.low !== null && q.close !== null)
+            .map(q => ({
+              x: new Date(q.date).getTime(),
+              y: [q.open, q.high, q.low, q.close]
+            }));
+
+          res.json(candles);
+        } else {
+          // Para diario, usar el método historical convencional
+          const data = await yahooFinance.historical(symbol, {
+            period1: startDate,
+            period2: today,
+            interval: '1d'
+          });
+
+          const candles = data.map(item => ({
+            x: new Date(item.date).getTime(),
+            y: [item.open, item.high, item.low, item.close]
+          }));
+
+          res.json(candles);
+        }
       } catch (yfErr) {
-        console.warn(`Yahoo Finance historical falló para ${symbol}, generando velas de respaldo:`, yfErr.message);
-        const mockCandles = generateMockCandles(symbol);
+        console.warn(`Yahoo Finance chart/historical falló para ${symbol} (${interval}), generando velas de respaldo:`, yfErr.message);
+        const mockCandles = generateMockCandles(symbol, interval);
         res.json(mockCandles);
       }
     }

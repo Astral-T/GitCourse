@@ -47,17 +47,26 @@
       <div class="observatory-row">
         
         <!-- Domo Celeste Canvas -->
-        <div class="sky-dome-card card-style-c cyan">
+        <div class="sky-dome-card card-style-c cyan" id="sky-dome-card-container">
           <div class="card-header">
-            <span class="tag">Observatorio Piura</span>
-            <span class="coordinates">LAT: -5.19° | LON: -80.63°</span>
+            <div class="header-main-info">
+              <span class="tag">Observatorio Piura</span>
+              <span class="coordinates">LAT: -5.19° | LON: -80.63°</span>
+            </div>
+            <button class="btn-fullscreen" id="btn-fullscreen-sky" title="Pantalla Completa">⛶</button>
           </div>
           <div class="sky-canvas-wrapper">
             <canvas id="sky-dome" width="360" height="360"></canvas>
+            
+            <!-- Controles especiales para giroscopio y sensores en móvil (solo visible en pantalla completa) -->
+            <div class="sky-ar-overlay hidden" id="sky-ar-overlay-controls">
+              <p>Modo Orientación Celular (AR)</p>
+              <button class="btn btn-green" id="btn-activate-gyro">Activar Giroscopio</button>
+            </div>
           </div>
           
           <!-- Controles de simulación de Brújula y Elevación para Laptop -->
-          <div class="sky-controls">
+          <div class="sky-controls" id="sky-dome-laptop-controls">
             <div class="control-group">
               <label for="control-azimuth">Dirección (Brújula): <span id="val-azimuth">0</span>°</label>
               <input type="range" id="control-azimuth" min="0" max="360" value="0">
@@ -103,18 +112,32 @@
       <!-- Fila Central/Inferior: Ruleta y Repetición Espaciada -->
       <div class="learning-row">
         
-        <!-- Ruleta Cultural de Países -->
-        <div class="roulette-card card-style-c cyan">
+        <!-- Ruleta / Globo 3D de Países -->
+        <div class="roulette-card card-style-c cyan" id="roulette-globe-card-container">
           <div class="card-header">
-            <span class="tag">Ruleta Cultural</span>
-            <span class="status-pill">Gira para descubrir</span>
+            <span class="tag" id="learning-module-title">Ruleta de Países</span>
+            <div class="learning-mode-selector">
+              <button class="mode-tab active" id="btn-mode-roulette">Ruleta</button>
+              <button class="mode-tab" id="btn-mode-globe">Globo 3D</button>
+            </div>
           </div>
-          <div class="roulette-container">
+          
+          <!-- Vista 1: Ruleta tradicional -->
+          <div class="roulette-container" id="roulette-view-container">
             <div class="roulette-wheel-wrapper">
               <canvas id="roulette-wheel" width="280" height="280"></canvas>
               <div class="roulette-pointer"></div>
             </div>
             <button class="btn btn-primary" id="btn-spin-roulette">Girar Ruleta</button>
+          </div>
+
+          <!-- Vista 2: Globo 3D holográfico -->
+          <div class="globe-view-container hidden" id="globe-view-container">
+            <div class="globe-canvas-wrapper">
+              <canvas id="globe-3d" width="280" height="280"></canvas>
+              <div class="globe-instructions">Arrastra para rotar | Haz click en un nodo brillante</div>
+            </div>
+            <button class="btn btn-primary" id="btn-fullscreen-globe">Pantalla Completa ⛶</button>
           </div>
         </div>
 
@@ -237,9 +260,17 @@
               <span class="asset-price-tag" id="active-asset-price">$0.00</span>
             </div>
             
-            <!-- Selector de Activo -->
-            <div class="asset-selector-dropdown">
-              <select id="select-active-asset">
+            <div class="chart-controls-wrapper">
+              <!-- Selector de Intervalo -->
+              <div class="chart-interval-selector">
+                <button class="interval-tab" data-interval="15m">15m</button>
+                <button class="interval-tab" data-interval="1h">1h</button>
+                <button class="interval-tab active" data-interval="1d">1d</button>
+              </div>
+              
+              <!-- Selector de Activo -->
+              <div class="asset-selector-dropdown">
+                <select id="select-active-asset">
                 <optgroup label="Criptomonedas (Binance)">
                   <option value="BTC" data-type="crypto" data-name="Bitcoin" selected>Bitcoin (BTC)</option>
                   <option value="ETH" data-type="crypto" data-name="Ethereum">Ethereum (ETH)</option>
@@ -367,6 +398,83 @@
     </section>
 
   </main>
+
+  <!-- Modal de Detalle y Quiz de Globo 3D -->
+  <div class="modal-overlay hidden" id="globe-country-modal">
+    <div class="modal-content card-style-c cyan">
+      <button class="modal-close" id="btn-close-globe-modal">&times;</button>
+      <div class="modal-body-wrapper">
+        <h2 id="g-modal-country-name">País</h2>
+        <p class="modal-subtitle">Selecciona una categoría para aprender e iniciar el quiz de sello:</p>
+        
+        <!-- Categorías del Globo -->
+        <div class="globe-category-tabs">
+          <button class="g-cat-tab active" data-cat="Comida">🍳 Comida</button>
+          <button class="g-cat-tab" data-cat="Naturaleza">🌿 Naturaleza</button>
+          <button class="g-cat-tab" data-cat="Economía">💼 Economía</button>
+          <button class="g-cat-tab" data-cat="Costumbres">🎭 Costumbres</button>
+          <button class="g-cat-tab" data-cat="Geografía">🗺️ Geografía</button>
+        </div>
+
+        <hr class="glow-separator">
+
+        <!-- Área de aprendizaje e información -->
+        <div class="globe-category-details" id="g-category-details-panel">
+          <div class="g-facts-section">
+            <h3>Datos de Curiosidad</h3>
+            <ul id="g-facts-list">
+              <li>Cargando datos interesantes...</li>
+            </ul>
+          </div>
+          
+          <div class="g-stamp-progress-section">
+            <div class="g-stamp-indicator-row">
+              <span class="g-stamp-label" id="g-stamp-medal-name">Nivel 0 (Sin Sello)</span>
+              <span class="g-stamp-percent" id="g-stamp-progress-text">0/3 completado</span>
+            </div>
+            <div class="g-progress-bar">
+              <div class="g-progress-bar-fill" id="g-stamp-progress-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-full-width" id="btn-start-globe-quiz">Iniciar Mini-Quiz Evaluativo</button>
+        </div>
+
+        <!-- Área de Quiz Evaluativo -->
+        <div class="globe-quiz-section hidden" id="g-quiz-section">
+          <button class="btn btn-secondary" id="btn-back-to-facts" style="margin-bottom: 12px; padding: 4px 10px; font-size: 12px;">← Volver a Datos</button>
+          <h3>Evaluación del tema</h3>
+          <p class="quiz-instruction">Responde correctamente las 3 preguntas para avanzar de nivel de sello:</p>
+          <div class="quiz-questions-box" id="g-quiz-questions-container">
+            <!-- Preguntas renderizadas dinámicamente -->
+          </div>
+          <button class="btn btn-green btn-full-width" id="btn-submit-globe-quiz" style="margin-top: 15px;">Enviar Respuestas</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Resumen de Noticias en App -->
+  <div class="modal-overlay hidden" id="news-summary-modal">
+    <div class="modal-content card-style-c purple">
+      <button class="modal-close" id="btn-close-news-modal">&times;</button>
+      <div class="modal-body-wrapper">
+        <span class="tag" id="news-modal-category">Ciencia</span>
+        <h2 id="news-modal-title">Título del artículo</h2>
+        <div class="news-modal-meta">
+          <span class="source-pill" id="news-modal-source">Nature</span>
+          <span class="date-text" id="news-modal-date">23 Jun 2026</span>
+        </div>
+        <hr class="glow-separator">
+        <div class="news-modal-summary" id="news-modal-summary-content">
+          <!-- Contenido del resumen -->
+        </div>
+        <div class="news-modal-actions" style="margin-top: 20px;">
+          <a href="#" target="_blank" class="btn btn-primary" id="news-modal-link">Visitar Sitio Original (Anuncios Externos)</a>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Carga de las rutinas de front-end unificadas en el bundle de Vite -->
   <script type="module" src="/src/main.js"></script>

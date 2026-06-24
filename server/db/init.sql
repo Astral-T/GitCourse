@@ -17,10 +17,11 @@ CREATE TABLE IF NOT EXISTS user_passports (
     country_code VARCHAR(3) PRIMARY KEY, -- Código ISO de 3 letras (ej. PER, JPN, DEU)
     country_name VARCHAR(100) NOT NULL,
     first_visit TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    cultura_aprendida BOOLEAN DEFAULT FALSE,
-    economia_aprendida BOOLEAN DEFAULT FALSE,
-    ciencia_aprendida BOOLEAN DEFAULT FALSE,
-    geografia_aprendida BOOLEAN DEFAULT FALSE
+    comida_nivel INTEGER DEFAULT 0,
+    naturaleza_nivel INTEGER DEFAULT 0,
+    economia_nivel INTEGER DEFAULT 0,
+    costumbres_nivel INTEGER DEFAULT 0,
+    geografia_nivel INTEGER DEFAULT 0
 );
 
 -- 3. Tabla de Tarjetas de Repetición Espaciada (Spaced Repetition Cards)

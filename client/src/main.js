@@ -4,7 +4,9 @@ import './style.css';
 import { 
   calculateMoonPhase, 
   updateMoonVisual, 
-  drawSkyDome 
+  drawSkyDome,
+  updateAstronomyPanel,
+  initSkyDragControls
 } from './astronomy.js';
 
 import { 
@@ -12,7 +14,9 @@ import {
   spinAndDiscover, 
   loadPendingCards, 
   startReviews, 
-  loadPassport 
+  loadPassport,
+  initGlobe3D,
+  initGlobeModalEvents
 } from './roulette.js';
 
 import { 
@@ -27,9 +31,8 @@ import {
 } from './trading.js';
 
 const BACKEND_URL = 'http://localhost:3000';
-
-// Estado global de la vista
 let currentTab = 'learning';
+let isGyroActive = false;
 
 // 1. CONTROLADOR DE CAMBIO DE PESTAÑAS (TABS)
 function initTabs() {
@@ -40,11 +43,9 @@ function initTabs() {
       const target = tab.getAttribute('data-tab');
       if (target === currentTab) return;
 
-      // Actualizar estilo active en los botones
       tabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
 
-      // Alternar secciones en el DOM
       document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
       });
@@ -52,7 +53,6 @@ function initTabs() {
 
       currentTab = target;
 
-      // Cargar datos específicos del módulo al activarlo
       if (currentTab === 'learning') {
         refreshLearningData();
       } else if (currentTab === 'news') {
@@ -99,10 +99,15 @@ function initAstronomy() {
   const valAzimuth = document.getElementById('val-azimuth');
   const valAltitude = document.getElementById('val-altitude');
   const recommendationsList = document.getElementById('visible-stars-list');
+  const btnFullscreen = document.getElementById('btn-fullscreen-sky');
+  const skyCard = document.getElementById('sky-dome-card-container');
+  const arControls = document.getElementById('sky-ar-overlay-controls');
+  const btnActivateGyro = document.getElementById('btn-activate-gyro');
 
   if (!skyCanvas || !azimuthSlider || !altitudeSlider) return;
 
-  // Lógica para actualizar canvas y lista de recomendaciones
+  const moonData = calculateMoonPhase(new Date());
+
   function updateSky() {
     const az = parseFloat(azimuthSlider.value);
     const alt = parseFloat(altitudeSlider.value);
@@ -110,22 +115,25 @@ function initAstronomy() {
     if (valAzimuth) valAzimuth.textContent = az;
     if (valAltitude) valAltitude.textContent = alt;
 
-    // Calcular y dibujar
-    const recommendations = drawSkyDome(skyCanvas, az, alt, new Date());
+    // Calcular, dibujar y obtener recomendaciones + cuerpo enfocado
+    const result = drawSkyDome(skyCanvas, az, alt, new Date());
 
-    // Actualizar lista de recomendaciones en el DOM
+    // Actualizar panel lateral de la Luna / Constelaciones enfocas
+    updateAstronomyPanel(result.targetedAstro, moonData);
+
+    // Actualizar lista de astros en pantalla
     if (recommendationsList) {
       recommendationsList.innerHTML = '';
-      if (recommendations.length === 0) {
-        recommendationsList.innerHTML = `<li>No hay cuerpos notables identificados en esta orientación.</li>`;
+      if (result.recommendations.length === 0) {
+        recommendationsList.innerHTML = `<li>No hay cuerpos notables en esta orientación.</li>`;
       } else {
-        recommendations.forEach(rec => {
+        result.recommendations.forEach(rec => {
           const li = document.createElement('li');
           li.innerHTML = rec.text;
           if (rec.type === 'targeting') {
             li.style.borderColor = 'var(--cyan-neon)';
-            li.style.background = 'rgba(0, 229, 255, 0.05)';
-            li.style.fontWeight = '500';
+            li.style.background = 'rgba(0, 229, 255, 0.08)';
+            li.style.fontWeight = '600';
           }
           recommendationsList.appendChild(li);
         });
@@ -133,38 +141,95 @@ function initAstronomy() {
     }
   }
 
-  // Redibujar al mover sliders (Simulador de brújula/inclinación en Laptop)
+  // Desplazamiento por arrastre (Drag) del Canvas celestial
+  initSkyDragControls(skyCanvas, updateSky);
+
+  // Sliders manuales
   azimuthSlider.addEventListener('input', updateSky);
   altitudeSlider.addEventListener('input', updateSky);
 
-  // Inicializar fase lunar
-  const moonData = calculateMoonPhase(new Date());
+  // Inicializar luna
   updateMoonVisual(moonData);
-
-  // Primer dibujado
   updateSky();
 
-  // Opcional: Soporte para celular en el futuro (Giroscopio/Brújula)
-  // Dejamos lista la estructura para el API DeviceOrientation
-  if (window.DeviceOrientationEvent) {
-    window.addEventListener('deviceorientation', (e) => {
-      // Solo usar si el usuario está en móvil y la pestaña está activa
-      if (currentTab === 'learning' && e.alpha !== null) {
-        // alpha: rotación compás (0 a 360)
-        // beta: inclinación frente-atrás (-180 a 180). Mapeamos a Altitud.
-        let deviceAz = Math.round(e.alpha);
-        let deviceAlt = Math.round(Math.abs(e.beta));
-        
-        // Limitar elevación entre 0 y 90
-        if (deviceAlt > 90) deviceAlt = 90;
+  // Redimensionado del canvas cuando se pasa a pantalla completa
+  const handleResize = () => {
+    if (document.body.classList.contains('sky-fullscreen-active')) {
+      skyCanvas.width = Math.min(window.innerWidth, window.innerHeight) * 0.85;
+      skyCanvas.height = skyCanvas.width;
+    } else {
+      skyCanvas.width = 360;
+      skyCanvas.height = 360;
+    }
+    updateSky();
+  };
 
-        // Actualizar sliders para feedback visual
-        azimuthSlider.value = deviceAz;
-        altitudeSlider.value = deviceAlt;
-        
-        updateSky();
+  // Fullscreen toggle celeste
+  if (btnFullscreen && skyCard) {
+    btnFullscreen.addEventListener('click', () => {
+      const isFullscreen = document.body.classList.toggle('sky-fullscreen-active');
+      btnFullscreen.textContent = isFullscreen ? '✖' : '⛶';
+      
+      if (isFullscreen) {
+        // En móvil mostramos botón de sensores
+        if (window.DeviceOrientationEvent && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
+          if (arControls) arControls.classList.remove('hidden');
+        }
+      } else {
+        if (arControls) arControls.classList.add('hidden');
+        // Quitar escucha de giroscopio si se apaga fullscreen
+        if (isGyroActive) {
+          window.removeEventListener('deviceorientation', handleDeviceOrientation);
+          isGyroActive = false;
+        }
       }
-    }, true);
+      handleResize();
+    });
+  }
+
+  window.addEventListener('resize', handleResize);
+
+  // Lógica del giroscopio (AR)
+  function handleDeviceOrientation(e) {
+    if (!document.body.classList.contains('sky-fullscreen-active')) return;
+    if (e.alpha === null || e.beta === null) return;
+    
+    // alpha: guiñada (compás) [0, 360] -> Dirección Azimut
+    // beta: cabeceo [inclinación] -> Altitud
+    let deviceAz = Math.round(e.alpha);
+    let deviceAlt = 90 - Math.abs(Math.round(e.beta)); // apuntar recto = 0°, arriba = 90°
+    
+    if (deviceAlt < 0) deviceAlt = 0;
+    if (deviceAlt > 90) deviceAlt = 90;
+
+    azimuthSlider.value = deviceAz;
+    altitudeSlider.value = deviceAlt;
+    updateSky();
+  }
+
+  if (btnActivateGyro) {
+    btnActivateGyro.addEventListener('click', async () => {
+      // Pedir permisos explícitos en iOS
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const permissionState = await DeviceOrientationEvent.requestPermission();
+          if (permissionState === 'granted') {
+            window.addEventListener('deviceorientation', handleDeviceOrientation, true);
+            isGyroActive = true;
+            if (arControls) arControls.classList.add('hidden'); // ocultar botón una vez concedido
+          } else {
+            alert('Permiso de sensores denegado.');
+          }
+        } catch (err) {
+          console.error('Error pidiendo permiso de sensores:', err);
+        }
+      } else {
+        // Android u otros navegadores
+        window.addEventListener('deviceorientation', handleDeviceOrientation, true);
+        isGyroActive = true;
+        if (arControls) arControls.classList.add('hidden');
+      }
+    });
   }
 }
 
@@ -176,37 +241,81 @@ async function refreshLearningData() {
 
 // 5. INICIALIZADOR PRINCIPAL ON-LOAD
 async function initApp() {
-  console.log('Iniciando Portal de Curiosidad y Simulación...');
+  console.log('Iniciando Portal de Curiosidad y Simulación (Fase 2)...');
 
-  // Inicializar tabs de navegación
   initTabs();
 
-  // Comprobar conexión con servidor Express
   const isOnline = await checkBackendConnection();
 
-  // Inicializar Astronomía
   initAstronomy();
 
   // Inicializar la Ruleta
   const rouletteWheel = document.getElementById('roulette-wheel');
   if (rouletteWheel) {
     initRoulette(rouletteWheel);
-
     const btnSpin = document.getElementById('btn-spin-roulette');
     if (btnSpin) {
       btnSpin.addEventListener('click', () => {
         btnSpin.disabled = true;
-        
         spinAndDiscover(rouletteWheel, (data) => {
           btnSpin.disabled = false;
-          alert(`🎉 ¡Ruleta Detenida!\nHas descubierto a: ${data.countryName}. Nuevas tarjetas añadidas a tu pasaporte.`);
+          alert(`🎉 ¡Ruleta Detenida!\nHas descubierto a: ${data.countryName}. Se han generado preguntas de geografía, comida y cultura en tu pasaporte.`);
           refreshLearningData();
         });
       });
     }
   }
 
-  // Inicializar botones de repaso
+  // Inicializar Globo Terráqueo 3D
+  const globeCanvas = document.getElementById('globe-3d');
+  if (globeCanvas) {
+    initGlobe3D(globeCanvas);
+    initGlobeModalEvents();
+
+    // Toggle de Modo Ruleta / Globo 3D
+    const btnModeRoulette = document.getElementById('btn-mode-roulette');
+    const btnModeGlobe = document.getElementById('btn-mode-globe');
+    const rouletteView = document.getElementById('roulette-view-container');
+    const globeView = document.getElementById('globe-view-container');
+    const titleEl = document.getElementById('learning-module-title');
+
+    if (btnModeRoulette && btnModeGlobe && rouletteView && globeView) {
+      btnModeRoulette.addEventListener('click', () => {
+        btnModeRoulette.classList.add('active');
+        btnModeGlobe.classList.remove('active');
+        rouletteView.classList.remove('hidden');
+        globeView.classList.add('hidden');
+        if (titleEl) titleEl.textContent = 'Ruleta de Países';
+      });
+
+      btnModeGlobe.addEventListener('click', () => {
+        btnModeGlobe.classList.add('active');
+        btnModeRoulette.classList.remove('active');
+        globeView.classList.remove('hidden');
+        rouletteView.classList.add('hidden');
+        if (titleEl) titleEl.textContent = 'Globo Terráqueo 3D';
+      });
+    }
+
+    // Fullscreen del Globo 3D
+    const btnFullscreenGlobe = document.getElementById('btn-fullscreen-globe');
+    if (btnFullscreenGlobe) {
+      btnFullscreenGlobe.addEventListener('click', () => {
+        const isFull = document.body.classList.toggle('globe-fullscreen-active');
+        btnFullscreenGlobe.textContent = isFull ? 'Cerrar Globo 3D' : 'Pantalla Completa ⛶';
+        
+        if (isFull) {
+          globeCanvas.width = Math.min(window.innerWidth, window.innerHeight) * 0.85;
+          globeCanvas.height = globeCanvas.width;
+        } else {
+          globeCanvas.width = 280;
+          globeCanvas.height = 280;
+        }
+      });
+    }
+  }
+
+  // Inicializar botones de repaso de tarjetas
   const btnStartReviews = document.getElementById('btn-start-reviews');
   if (btnStartReviews) {
     btnStartReviews.addEventListener('click', startReviews);
@@ -216,12 +325,11 @@ async function initApp() {
   initNewsEvents();
   initTradingEvents();
 
-  // Cargar datos iniciales del módulo activo (Aprendizaje)
   if (isOnline) {
     refreshLearningData();
   }
 
-  // Inicializar linterna interactiva radial (Spotlight Glow) para tarjetas estáticas iniciales
+  // Spotlight Glow effect
   const staticCards = document.querySelectorAll('.card-style-c');
   staticCards.forEach(card => {
     card.addEventListener('mousemove', e => {

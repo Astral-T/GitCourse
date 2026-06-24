@@ -15,7 +15,9 @@ const FEEDS = [
   { source: 'Nature', url: 'https://www.nature.com/nature.rss', defaultCategory: 'Ciencia' },
   { source: 'ScienceDaily', url: 'https://www.sciencedaily.com/rss/all.xml', defaultCategory: 'Ciencia' },
   { source: 'MIT Tech Review', url: 'https://www.technologyreview.com/feed/', defaultCategory: 'Tecnología' },
-  { source: 'TechCrunch', url: 'https://techcrunch.com/feed/', defaultCategory: 'Economía' }
+  { source: 'TechCrunch', url: 'https://techcrunch.com/feed/', defaultCategory: 'Economía' },
+  { source: 'CNBC Finance', url: 'https://search.cnbc.com/rs/search/all/rss.xml', defaultCategory: 'Economía' },
+  { source: 'Yahoo Finance', url: 'https://finance.yahoo.com/news/rssindex', defaultCategory: 'Economía' }
 ];
 
 // Palabras clave para filtrar noticias de política, elecciones y regulaciones legales
@@ -81,12 +83,13 @@ function isForbidden(title, summary) {
 
 // Función para sincronizar noticias desde los feeds RSS a Postgres
 async function refreshNews() {
-  console.log('Iniciando sincronización de noticias desde feeds RSS...');
+  console.log('Iniciando sincronización de noticias desde feeds RSS en paralelo...');
   let totalSaved = 0;
 
-  for (const feed of FEEDS) {
+  const promises = FEEDS.map(async (feed) => {
     try {
       const parsedFeed = await parser.parseURL(feed.url);
+      let feedSaved = 0;
       
       for (const item of parsedFeed.items) {
         const title = item.title;
@@ -118,13 +121,18 @@ async function refreshNews() {
         ]);
 
         if (res.rowCount > 0) {
-          totalSaved++;
+          feedSaved++;
         }
       }
+      return feedSaved;
     } catch (err) {
       console.error(`Error al procesar el feed de ${feed.source}:`, err.message);
+      return 0;
     }
-  }
+  });
+
+  const results = await Promise.all(promises);
+  totalSaved = results.reduce((acc, curr) => acc + curr, 0);
 
   console.log(`Sincronización finalizada. Se agregaron ${totalSaved} nuevas noticias.`);
   return totalSaved;

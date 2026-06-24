@@ -1412,3 +1412,497 @@ body {
 .hidden {
   display: none !important;
 }
+
+/* ==========================================================================
+   DISEÑO FASE 2: PANTALLA COMPLETA, MODALES, GLOWS Y QUIZZES
+   ========================================================================== */
+
+/* Botón de Pantalla Completa */
+.btn-fullscreen {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--cyan-neon);
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.btn-fullscreen:hover {
+  background: rgba(0, 229, 255, 0.12);
+  border-color: var(--cyan-neon);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
+}
+
+/* 1. Pantalla Completa para el Observatorio */
+body.sky-fullscreen-active {
+  overflow: hidden;
+}
+body.sky-fullscreen-active #sky-dome-card-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  background: #030408;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+body.sky-fullscreen-active #sky-dome-laptop-controls {
+  width: 100%;
+  max-width: 500px;
+  margin-top: 15px;
+  background: rgba(12, 13, 24, 0.85);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  border-radius: 12px;
+  padding: 15px;
+  z-index: 10;
+}
+.sky-ar-overlay {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  text-align: center;
+  background: rgba(3, 4, 8, 0.85);
+  border: 1px solid var(--green-neon);
+  border-radius: 12px;
+  padding: 10px 20px;
+  box-shadow: 0 0 15px rgba(57, 255, 20, 0.2);
+}
+.sky-ar-overlay p {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* 2. Pantalla Completa para el Globo 3D */
+body.globe-fullscreen-active {
+  overflow: hidden;
+}
+body.globe-fullscreen-active #roulette-globe-card-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  background: #04060e;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+body.globe-fullscreen-active #globe-view-container {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+}
+body.globe-fullscreen-active .globe-instructions {
+  font-size: 13px;
+  margin-top: 15px;
+  color: var(--text-secondary);
+  text-shadow: 0 0 4px rgba(255,255,255,0.2);
+}
+
+/* Selector de modo ruleta/globo */
+.learning-mode-selector {
+  display: flex;
+  gap: 4px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 2px;
+}
+.mode-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.mode-tab.active {
+  background: rgba(0, 229, 255, 0.12);
+  color: var(--cyan-neon);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+}
+
+/* Instrucciones flotantes del globo */
+.globe-instructions {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* Modales Glassmorphic */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10000;
+  background: rgba(3, 4, 8, 0.7);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fade-in 0.25s ease;
+}
+.modal-content {
+  width: 90%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+  border-radius: 20px;
+  padding: 30px;
+  position: relative;
+  z-index: 10002;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-close {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 28px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.modal-close:hover {
+  color: #fff;
+  text-shadow: 0 0 8px #fff;
+}
+.modal-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: -6px;
+  margin-bottom: 20px;
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Separador con brillo */
+.glow-separator {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  margin: 20px 0;
+}
+
+/* Pestañas de categorías del Globo */
+.globe-category-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 15px;
+}
+.g-cat-tab {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition-fast);
+}
+.g-cat-tab:hover {
+  background: rgba(255,255,255,0.05);
+}
+.g-cat-tab.active {
+  background: rgba(0, 229, 255, 0.1);
+  border-color: var(--cyan-neon);
+  color: var(--cyan-neon);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.15);
+}
+
+/* Sección de datos de curiosidad del globo */
+.g-facts-section h3 {
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+.g-facts-section ul {
+  padding-left: 20px;
+  margin-bottom: 20px;
+}
+.g-facts-section li {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+
+/* Indicador de sello y progreso */
+.g-stamp-progress-section {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 20px;
+}
+.g-stamp-indicator-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.g-stamp-label {
+  font-weight: 600;
+}
+.g-stamp-percent {
+  color: var(--text-muted);
+}
+.g-progress-bar {
+  background: rgba(255,255,255,0.04);
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.g-progress-bar-fill {
+  background: linear-gradient(90deg, var(--cyan-neon), #a855f7);
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+/* Quizzes del Globo */
+.globe-quiz-section h3 {
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+.quiz-instruction {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+.quiz-q-group {
+  margin-bottom: 20px;
+  background: rgba(255,255,255,0.01);
+  border: 1px solid rgba(255,255,255,0.03);
+  padding: 12px;
+  border-radius: 10px;
+}
+.quiz-question-title {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.quiz-options-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+@media (min-width: 480px) {
+  .quiz-options-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.quiz-option-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.quiz-option-label:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.1);
+}
+.quiz-option-label input[type="radio"] {
+  accent-color: var(--cyan-neon);
+  cursor: pointer;
+}
+
+/* Modales de Noticias */
+.summary-paragraph {
+  line-height: 1.7;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 15px;
+}
+.summary-disclaimer {
+  font-size: 11px;
+  color: var(--purple-neon);
+  background: rgba(168, 85, 247, 0.08);
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(168, 85, 247, 0.15);
+  display: inline-block;
+}
+
+/* Botón flotante resumen noticia */
+.news-link-btn {
+  display: block;
+  color: var(--purple-neon);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-top: 10px;
+  transition: var(--transition-fast);
+}
+.news-card:hover .news-link-btn {
+  text-shadow: 0 0 6px var(--purple-neon);
+}
+
+/* Niveles de Sellos del Pasaporte */
+/* lvl-0 (Opaco/Gris) */
+.stamp-badge.lvl-0 {
+  filter: grayscale(1);
+  opacity: 0.15;
+  border-style: dashed;
+}
+/* lvl-1 (Bronce) */
+.stamp-badge.lvl-1 {
+  filter: grayscale(0);
+  opacity: 1;
+  border-style: solid;
+  border-color: #cd7f32; /* bronce */
+  background: rgba(205, 127, 50, 0.12);
+  color: #d2b48c;
+  box-shadow: 0 0 6px rgba(205, 127, 50, 0.25);
+}
+/* lvl-2 (Plata) */
+.stamp-badge.lvl-2 {
+  filter: grayscale(0);
+  opacity: 1;
+  border-style: solid;
+  border-color: #c0c0c0; /* plata */
+  background: rgba(192, 192, 192, 0.12);
+  color: #e6e6e6;
+  box-shadow: 0 0 8px rgba(192, 192, 192, 0.3);
+}
+/* lvl-3 (Oro) */
+.stamp-badge.lvl-3 {
+  filter: grayscale(0);
+  opacity: 1;
+  border-style: solid;
+  border-color: #ffd700; /* oro */
+  background: rgba(255, 215, 0, 0.12);
+  color: #ffd700;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.4);
+}
+
+/* Corona de maestría y efecto de Dominado */
+.master-crown {
+  font-size: 14px;
+  margin-left: 6px;
+  filter: drop-shadow(0 0 4px #ffd700);
+}
+.stamp-box.dominado-glow {
+  border-color: rgba(57, 255, 20, 0.35) !important;
+  background: rgba(57, 255, 20, 0.03) !important;
+  box-shadow: 0 4px 20px rgba(57, 255, 20, 0.15) !important;
+  animation: pulse-dominado 3s infinite alternate;
+}
+@keyframes pulse-dominado {
+  0% { border-color: rgba(57, 255, 20, 0.2); }
+  50% { border-color: rgba(0, 229, 255, 0.35); }
+  100% { border-color: rgba(57, 255, 20, 0.2); }
+}
+
+/* Banner de Éxito al Completar Todos */
+.glowing-success-banner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  grid-column: 1 / -1;
+  background: rgba(0, 229, 255, 0.03);
+  border-color: rgba(0, 229, 255, 0.3) !important;
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.12);
+  padding: 20px;
+  margin-bottom: 20px;
+  animation: fade-in 0.4s ease;
+}
+.glowing-success-banner .banner-icon {
+  font-size: 40px;
+  filter: drop-shadow(0 0 10px var(--cyan-neon));
+}
+.glowing-success-banner h3 {
+  font-size: 16px;
+  color: var(--cyan-neon);
+  margin-bottom: 6px;
+}
+.glowing-success-banner p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* 3. Controles del Gráfico de Trading (Intervalos) */
+.chart-controls-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.chart-interval-selector {
+  display: flex;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 2px;
+}
+.interval-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.interval-tab:hover {
+  color: #fff;
+}
+.interval-tab.active {
+  background: rgba(57, 255, 20, 0.12);
+  color: var(--green-neon);
+  border: 1px solid rgba(57, 255, 20, 0.2);
+}
+
