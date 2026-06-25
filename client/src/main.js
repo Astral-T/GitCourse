@@ -197,7 +197,7 @@ function initAstronomy() {
   const hudAzimuth = document.getElementById('stellar-hud-azimuth');
   const hudAltitude = document.getElementById('stellar-hud-altitude');
 
-  window.bypassNightCheck = false;
+  window.bypassNightCheck = true; // TEMPORAL: Activado para pruebas del usuario
   window.checkStellarViewer = checkStellarViewerAvailability;
 
   function checkStellarViewerAvailability() {

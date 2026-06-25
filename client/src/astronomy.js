@@ -772,6 +772,42 @@ function generateBackgroundStars() {
   }
 }
 
+// 500 Micro-estrellas para el ruido de fondo infinito
+let microStars = [];
+function generateMicroStars() {
+  if (microStars.length > 0) return;
+  for (let i = 0; i < 500; i++) {
+    microStars.push({
+      ra: Math.random() * 24,
+      dec: Math.random() * 170 - 85,
+      opacity: Math.random() * 0.15 + 0.05 // 5% a 20%
+    });
+  }
+}
+
+// Nebulosas y polvo cósmico rotativos aleatorios
+let backgroundNebulas = [];
+function generateRandomNebulas() {
+  if (backgroundNebulas.length > 0) return;
+  const colors = [
+    { c1: 'rgba(138, 43, 226, 0.06)', c2: 'rgba(75, 0, 130, 0.01)' },   // violeta, índigo sutiles (6%, 1%)
+    { c1: 'rgba(255, 0, 128, 0.05)', c2: 'rgba(128, 0, 255, 0.01)' },  // magenta, violeta sutiles (5%, 1%)
+    { c1: 'rgba(75, 0, 130, 0.06)', c2: 'rgba(255, 0, 255, 0.01)' },   // índigo, magenta sutiles (6%, 1%)
+    { c1: 'rgba(186, 85, 211, 0.05)', c2: 'rgba(75, 0, 130, 0.01)' }   // violeta claro, índigo sutiles (5%, 1%)
+  ];
+  const count = 3 + Math.floor(Math.random() * 2); // 3 o 4 nebulosas gigantes
+  for (let i = 0; i < count; i++) {
+    const colorPair = colors[Math.floor(Math.random() * colors.length)];
+    backgroundNebulas.push({
+      ra: Math.random() * 24,
+      dec: Math.random() * 120 - 60,
+      color1: colorPair.c1,
+      color2: colorPair.c2,
+      sizeMult: 1.6 + Math.random() * 0.8
+    });
+  }
+}
+
 // Recorta el lienzo (Canvas) según la fase lunar exacta para simular sombra realista
 function clipMoonPhase(ctx, x, y, r, pct) {
   ctx.beginPath();
@@ -819,6 +855,52 @@ function clipMoonPhase(ctx, x, y, r, pct) {
   ctx.closePath();
 }
 
+// Dibuja una estrella realista con núcleo central brillante y halo difuso exterior en capas (blanco, halo de color y dispersión)
+function drawRealisticStar(ctx, x, y, size, glowColor) {
+  let r = 255, g = 255, b = 255;
+  if (glowColor.startsWith('#')) {
+    const hex = glowColor.replace('#', '');
+    if (hex.length === 6) {
+      r = parseInt(hex.substring(0, 2), 16);
+      g = parseInt(hex.substring(2, 4), 16);
+      b = parseInt(hex.substring(4, 6), 16);
+    } else if (hex.length === 3) {
+      r = parseInt(hex.charAt(0) + hex.charAt(0), 16);
+      g = parseInt(hex.charAt(1) + hex.charAt(1), 16);
+      b = parseInt(hex.charAt(2) + hex.charAt(2), 16);
+    }
+  } else if (glowColor.startsWith('rgba') || glowColor.startsWith('rgb')) {
+    const match = glowColor.match(/\d+/g);
+    if (match) {
+      r = parseInt(match[0]);
+      g = parseInt(match[1]);
+      b = parseInt(match[2]);
+    }
+  }
+
+  // Capa 1: Halo difuminado muy amplio (Lens dispersion / Atmósfera) con opacidad muy baja (0.05)
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, size * 4.5, 0, 2 * Math.PI);
+  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.05)`;
+  ctx.fill();
+
+  // Capa 2: Halo circular intermedio con opacidad baja (0.15)
+  ctx.beginPath();
+  ctx.arc(x, y, size * 2.2, 0, 2 * Math.PI);
+  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.15)`;
+  ctx.shadowColor = `rgb(${r}, ${g}, ${b})`;
+  ctx.shadowBlur = size * 3;
+  ctx.fill();
+  ctx.restore();
+
+  // Capa 3: Núcleo central blanco puro y pequeño
+  ctx.beginPath();
+  ctx.arc(x, y, size * 0.45, 0, 2 * Math.PI);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+}
+
 const moonImg = new Image();
 moonImg.src = '/moon_realistic.png';
 
@@ -831,6 +913,11 @@ export function initStellarViewer(canvas, onUpdateCoords) {
   let viewAlt = 20;
   let currentDate = new Date();
 
+  // Posición del mouse en laptop
+  let mouseX = -1000;
+  let mouseY = -1000;
+  let isUsingTouch = false;
+
   // Variables de Zoom
   let viewFov = 75; // FOV por defecto en grados
   let initialTouchDist = 0;
@@ -840,8 +927,11 @@ export function initStellarViewer(canvas, onUpdateCoords) {
   let focusedObject = null;
   let focusStartTime = null;
   let labelOpacity = 0.0;
+  let currentFocusType = null; // 'hover' o 'center'
 
   generateBackgroundStars();
+  generateMicroStars();
+  generateRandomNebulas();
 
   function render() {
     const width = canvas.width = window.innerWidth;
@@ -858,18 +948,68 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       return;
     }
 
-    // Fondo del cielo oscuro profundo
-    ctx.fillStyle = '#010103';
+    // Fondo base del cielo azul medianoche ultra oscuro (Regla 1: Nebulosas)
+    ctx.fillStyle = '#010106';
     ctx.fillRect(0, 0, width, height);
 
     const pixelsPerDegree = Math.min(width, height) / viewFov;
     const date = currentDate;
     const zoomFactor = 75 / viewFov;
 
-    // Colección de astros en pantalla para el sistema de enfoque
+    // Colección de astros en pantalla para el sistema de enfoque/hover
     const focusCandidates = [];
 
-    // 1. Dibujar estrellas de fondo (rotando en base a su RA/Dec y la hora del día en Piura)
+    // 1. Dibujar nebulosas y polvo cósmico rotando con el firmamento
+    backgroundNebulas.forEach(neb => {
+      const pos = raDecToAzAlt(neb.ra, neb.dec, date);
+      if (pos.alt < -15) return;
+      
+      let diffAz = pos.az - viewAz;
+      diffAz = (diffAz + 180) % 360;
+      if (diffAz < 0) diffAz += 360;
+      diffAz -= 180;
+      
+      const diffAlt = pos.alt - viewAlt;
+      const nx = width / 2 + diffAz * pixelsPerDegree;
+      const ny = height / 2 - diffAlt * pixelsPerDegree;
+      
+      const size = Math.min(width, height) * neb.sizeMult * zoomFactor * 0.85;
+      const gradSize = Math.min(size, Math.max(width, height) * 1.8);
+      
+      ctx.save();
+      const grad = ctx.createRadialGradient(nx, ny, 5, nx, ny, gradSize);
+      grad.addColorStop(0, neb.color1);
+      grad.addColorStop(0.5, neb.color2);
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(nx, ny, gradSize, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // 2. Dibujar micro-estrellas de fondo (Regla 3: profundidad infinita)
+    microStars.forEach(ms => {
+      const pos = raDecToAzAlt(ms.ra, ms.dec, date);
+      if (pos.alt < 0) return;
+      
+      let diffAz = pos.az - viewAz;
+      diffAz = (diffAz + 180) % 360;
+      if (diffAz < 0) diffAz += 360;
+      diffAz -= 180;
+      
+      const diffAlt = pos.alt - viewAlt;
+      const x = width / 2 + diffAz * pixelsPerDegree;
+      const y = height / 2 - diffAlt * pixelsPerDegree;
+      
+      if (x >= 0 && x <= width && y >= 0 && y <= height) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${ms.opacity})`;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    });
+
+    // 3. Dibujar estrellas de fondo brillantes (Regla 2: Aura realista)
     backgroundStars.forEach(star => {
       const pos = raDecToAzAlt(star.ra, star.dec, date);
       if (pos.alt < 0) return; // por debajo del horizonte
@@ -887,18 +1027,9 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       if (x >= 0 && x <= width && y >= 0 && y <= height) {
         const renderSize = star.size * Math.sqrt(zoomFactor);
         const renderGlow = star.glow * Math.sqrt(zoomFactor);
-
-        ctx.beginPath();
-        ctx.arc(x, y, renderSize, 0, 2 * Math.PI);
-        ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
         
-        if (renderGlow > 0) {
-          ctx.shadowColor = '#ffffff';
-          ctx.shadowBlur = renderGlow;
-        } else {
-          ctx.shadowBlur = 0;
-        }
-        ctx.fill();
+        const glowColor = star.name != null ? '#b4dcff' : '#ffffff';
+        drawRealisticStar(ctx, x, y, renderSize, glowColor);
 
         // Si la estrella de fondo tiene nombre, añadir a candidatos
         if (star.name) {
@@ -911,13 +1042,31 @@ export function initStellarViewer(canvas, onUpdateCoords) {
         }
       }
     });
-    ctx.shadowBlur = 0; // reset
 
     // Obtener posiciones celestes dinámicas para Piura
     const positions = calculateCelestialPositions(date);
 
-    // 2. Dibujar constelaciones (SOLO estrellas, CERO líneas rígidas, CERO etiquetas por defecto)
+    // 4. Dibujar constelaciones (SOLO estrellas, CERO líneas, CERO etiquetas por defecto)
     positions.constellations.forEach(constel => {
+      // Registrar el centro de la constelación como candidato
+      let centerDiffAz = constel.centerAz - viewAz;
+      centerDiffAz = (centerDiffAz + 180) % 360;
+      if (centerDiffAz < 0) centerDiffAz += 360;
+      centerDiffAz -= 180;
+      
+      const centerDiffAlt = constel.centerAlt - viewAlt;
+      const ccx = width / 2 + centerDiffAz * pixelsPerDegree;
+      const ccy = height / 2 - centerDiffAlt * pixelsPerDegree;
+
+      if (ccx >= 0 && ccx <= width && ccy >= 0 && ccy <= height && constel.centerAlt >= 0) {
+        focusCandidates.push({
+          name: `Constelación: ${constel.name}`,
+          type: 'constellation',
+          x: ccx, y: ccy,
+          size: 15
+        });
+      }
+
       constel.stars.forEach(star => {
         const starAz = (constel.centerAz + star.relX * 0.35 + 360) % 360;
         const starAlt = constel.centerAlt - star.relY * 0.35;
@@ -938,15 +1087,10 @@ export function initStellarViewer(canvas, onUpdateCoords) {
           const renderSize = 2.5 * Math.sqrt(zoomFactor);
           const renderGlow = 8 * Math.sqrt(zoomFactor);
 
-          ctx.beginPath();
-          ctx.arc(x, y, renderSize, 0, 2 * Math.PI);
-          ctx.fillStyle = '#ffffff';
-          ctx.shadowColor = '#00e5ff';
-          ctx.shadowBlur = renderGlow;
-          ctx.fill();
-          ctx.shadowBlur = 0;
+          const glowColor = star.name === 'Betelgeuse' ? '#ff7850' : '#00e5ff';
+          drawRealisticStar(ctx, x, y, renderSize, glowColor);
 
-          // Añadir estrellas con su nombre y constelación a candidatos de enfoque
+          // Registrar estrella
           focusCandidates.push({
             name: `${star.name} (${constel.name})`,
             type: 'constellation_star',
@@ -957,13 +1101,13 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       });
     });
 
-    // 3. Dibujar astros calculados (Sol, Luna, Planetas) - Cero contaminación visual (etiquetas solo por enfoque)
+    // 5. Dibujar astros (Sol, Luna, Planetas) - Cero contaminación visual, auras realistas en capas
     const isNight = date.getHours() < 6 || date.getHours() > 18;
     ASTROS.forEach(astro => {
       if (astro.isDayOnly && isNight) return;
 
       const pos = positions.astros[astro.id] || { az: 0, alt: -10 };
-      // Regla estricta 1: Si un astro está por debajo o en el horizonte, NO se debe renderizar bajo ninguna circunstancia
+      // Regla estricta 1: Si un astro está por debajo del horizonte, NO se renderiza
       if (pos.alt <= 0) return;
 
       let diffAz = pos.az - viewAz;
@@ -978,13 +1122,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       if (ax >= -100 && ax <= width + 100 && ay >= -100 && ay <= height + 100) {
         if (astro.id === 'sun') {
           const renderSize = 20 * zoomFactor;
-          ctx.beginPath();
-          ctx.arc(ax, ay, renderSize, 0, 2 * Math.PI);
-          ctx.fillStyle = '#ffcc00';
-          ctx.shadowColor = '#ff8800';
-          ctx.shadowBlur = 35 * Math.sqrt(zoomFactor);
-          ctx.fill();
-          ctx.shadowBlur = 0;
+          drawRealisticStar(ctx, ax, ay, renderSize, '#ffcc00');
 
           focusCandidates.push({
             name: astro.name,
@@ -993,10 +1131,20 @@ export function initStellarViewer(canvas, onUpdateCoords) {
             size: renderSize
           });
         } else if (astro.id === 'moon') {
-          // Luna fotográfica realista con recorte dinámico de fase
+          // Luna realista con brillo atmosférico exterior
           const renderSize = 15 * zoomFactor;
           const moonPhase = calculateMoonPhase(date);
           const pct = moonPhase.phasePercent;
+
+          // Brillo exterior de la luna
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(ax, ay, renderSize * 1.25, 0, 2 * Math.PI);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+          ctx.shadowColor = '#ffffff';
+          ctx.shadowBlur = 20 * Math.sqrt(zoomFactor);
+          ctx.fill();
+          ctx.restore();
 
           if (moonImg.complete && moonImg.naturalWidth !== 0) {
             ctx.save();
@@ -1008,10 +1156,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
             ctx.beginPath();
             ctx.arc(ax, ay, renderSize, 0, 2 * Math.PI);
             ctx.fillStyle = '#f4eedb';
-            ctx.shadowColor = '#ffffff';
-            ctx.shadowBlur = 15 * Math.sqrt(zoomFactor);
             ctx.fill();
-            ctx.shadowBlur = 0;
           }
 
           focusCandidates.push({
@@ -1023,15 +1168,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
         } else {
           // Planetas (Regla 2: Puntos circulares de alta intensidad, radio ligeramente mayor y destello radial potente)
           const renderSize = astro.size * 1.4 * Math.sqrt(zoomFactor);
-          const renderGlow = 25 * Math.sqrt(zoomFactor);
-
-          ctx.beginPath();
-          ctx.arc(ax, ay, renderSize, 0, 2 * Math.PI);
-          ctx.fillStyle = astro.color;
-          ctx.shadowColor = astro.color;
-          ctx.shadowBlur = renderGlow;
-          ctx.fill();
-          ctx.shadowBlur = 0;
+          drawRealisticStar(ctx, ax, ay, renderSize, astro.color);
 
           focusCandidates.push({
             name: astro.name,
@@ -1043,7 +1180,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       }
     });
 
-    // 4. Dibujar horizonte cian y bloquear el suelo con negro (Regla del horizonte)
+    // 6. Dibujar horizonte cian y bloquear el suelo con negro (Regla del horizonte)
     const horizonY = height / 2 + viewAlt * pixelsPerDegree;
     if (horizonY < height) {
       ctx.fillStyle = '#000000';
@@ -1062,67 +1199,97 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       ctx.shadowBlur = 0; // reset
     }
 
-    // 5. Sistema de Identificación por Enfoque por Proximidad (Regla 3)
-    let closestCandidate = null;
+    // 7. Sistema de Identificación Diferenciado (Laptop: Hover 1.5s/2.5s | Celular: Centro 2.5s)
+    let bestCandidate = null;
+    let focusType = null; // 'hover' o 'center'
     let minDistance = Infinity;
 
     focusCandidates.forEach(cand => {
-      const dist = Math.hypot(cand.x - width / 2, cand.y - height / 2);
-      if (dist < minDistance) {
-        minDistance = dist;
-        closestCandidate = cand;
+      const distCenter = Math.hypot(cand.x - width / 2, cand.y - height / 2);
+      const distMouse = Math.hypot(cand.x - mouseX, cand.y - mouseY);
+
+      if (!isUsingTouch) {
+        // Laptop hover mode
+        const threshold = cand.type === 'constellation' ? 35 : 20;
+        if (distMouse < threshold && distMouse < minDistance) {
+          minDistance = distMouse;
+          bestCandidate = cand;
+          focusType = 'hover';
+        }
+      } else {
+        // Mobile center mode (mirar algo)
+        if (distCenter < 25 && distCenter < minDistance) {
+          minDistance = distCenter;
+          bestCandidate = cand;
+          focusType = 'center';
+        }
       }
     });
 
-    const focusThreshold = 25; // Píxeles de tolerancia alrededor del centro
-    if (closestCandidate && minDistance < focusThreshold) {
-      if (focusedObject && focusedObject.name === closestCandidate.name) {
+    if (bestCandidate) {
+      if (focusedObject && focusedObject.name === bestCandidate.name && currentFocusType === focusType) {
         const timeDiff = Date.now() - focusStartTime;
-        if (timeDiff >= 2500) {
-          // Enfocado por >= 2.5s -> Desvanecer entrada de la etiqueta
+        
+        let requiredTime = 2500; // Por defecto 2.5s
+        if (focusType === 'hover' && bestCandidate.type === 'constellation') {
+          requiredTime = 1500; // 1.5s para constelación en laptop
+        }
+
+        if (timeDiff >= requiredTime) {
           labelOpacity = Math.min(1.0, labelOpacity + 0.05);
         }
       } else {
-        // Cambió el objeto enfocado, reiniciar contador
-        focusedObject = closestCandidate;
+        focusedObject = bestCandidate;
         focusStartTime = Date.now();
         labelOpacity = 0.0;
+        currentFocusType = focusType;
       }
     } else {
-      // Centro de pantalla vacío -> Desvanecer salida
       labelOpacity = Math.max(0.0, labelOpacity - 0.08);
       if (labelOpacity === 0.0) {
         focusedObject = null;
         focusStartTime = null;
+        currentFocusType = null;
       }
     }
 
-    // Dibujar la mira y la etiqueta cuando esté enfocada
+    // Dibujar la etiqueta y guías de enfoque si está activo
     if (focusedObject && labelOpacity > 0) {
-      // Círculo de enfoque sutil alrededor del cuerpo celeste
-      ctx.strokeStyle = `rgba(0, 229, 255, ${0.4 * labelOpacity})`;
+      let lx = width / 2;
+      let ly = height / 2 + 35;
+
+      if (currentFocusType === 'hover') {
+        lx = mouseX;
+        ly = mouseY + 28;
+        // Limitar coordenadas de etiqueta para que no salgan de pantalla
+        lx = Math.max(70, Math.min(width - 70, lx));
+        ly = Math.max(30, Math.min(height - 40, ly));
+      }
+
+      // Guía visual de enfoque circular sutil al rededor del cuerpo celeste
+      ctx.strokeStyle = `rgba(0, 229, 255, ${0.45 * labelOpacity})`;
       ctx.lineWidth = 0.8;
       ctx.beginPath();
       ctx.arc(focusedObject.x, focusedObject.y, focusedObject.size + 8, 0, 2 * Math.PI);
       ctx.stroke();
 
-      // Cruz del centro de la pantalla ultra-fina
-      ctx.strokeStyle = `rgba(255, 255, 255, ${0.12 * labelOpacity})`;
-      ctx.lineWidth = 0.8;
-      ctx.beginPath();
-      // Línea horizontal
-      ctx.moveTo(width / 2 - 12, height / 2);
-      ctx.lineTo(width / 2 - 4, height / 2);
-      ctx.moveTo(width / 2 + 4, height / 2);
-      ctx.lineTo(width / 2 + 12, height / 2);
-      // Línea vertical
-      ctx.moveTo(width / 2, height / 2 - 12);
-      ctx.lineTo(width / 2, height / 2 - 4);
-      ctx.moveTo(width / 2, height / 2 + 4);
-      ctx.lineTo(width / 2, height / 2 + 12);
-      ctx.stroke();
+      // Guía del centro de enfoque en cruz si se enfoca al medio (para celular o laptop centrando)
+      if (currentFocusType === 'center') {
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.12 * labelOpacity})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(width / 2 - 12, height / 2);
+        ctx.lineTo(width / 2 - 4, height / 2);
+        ctx.moveTo(width / 2 + 4, height / 2);
+        ctx.lineTo(width / 2 + 12, height / 2);
+        ctx.moveTo(width / 2, height / 2 - 12);
+        ctx.lineTo(width / 2, height / 2 - 4);
+        ctx.moveTo(width / 2, height / 2 + 4);
+        ctx.moveTo(width / 2, height / 2 + 12);
+        ctx.stroke();
+      }
 
-      // Etiqueta de texto ultra-fina y elegante
+      // Dibujar etiqueta tipográfica elegante
       ctx.fillStyle = `rgba(255, 255, 255, ${labelOpacity})`;
       ctx.font = '300 13px "Plus Jakarta Sans", sans-serif';
       ctx.textAlign = 'center';
@@ -1139,7 +1306,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
         labelText += ` (LUNA - ${moonPhase.phaseName.toUpperCase()})`;
       }
 
-      ctx.fillText(labelText, width / 2, height / 2 + 35);
+      ctx.fillText(labelText, lx, ly);
       ctx.shadowBlur = 0; // reset
     }
 
@@ -1162,9 +1329,10 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     startX = clientX;
     startY = clientY;
 
+    // Ambos ejes unificados invertidos (arrastre natural)
     viewAz = (viewAz - dx * 0.12 + 360) % 360;
-    viewAlt = viewAlt - dy * 0.1;
-    if (viewAlt < -15) viewAlt = -15; // permite arrastrar ligeramente bajo el horizonte
+    viewAlt = viewAlt + dy * 0.1; // invertido: arrastrar hacia arriba mueve la cámara hacia abajo
+    if (viewAlt < -15) viewAlt = -15; 
     if (viewAlt > 90) viewAlt = 90;
   };
 
@@ -1172,7 +1340,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     isDragging = false;
   };
 
-  // Manejo del scroll del ratón para Zoom (Laptop) (Regla 5)
+  // Manejo del scroll del ratón para Zoom (Laptop)
   const handleWheel = e => {
     e.preventDefault();
     const zoomSpeed = 0.04;
@@ -1181,13 +1349,31 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     if (viewFov > 120) viewFov = 120;   // zoom mínimo (campo amplio)
   };
 
-  canvas.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
-  canvas.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
+  // Capturar coordenadas del mouse para Laptop Hover
+  canvas.addEventListener('mousemove', e => {
+    if (isUsingTouch) return;
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+    if (isDragging) {
+      handleMove(e.clientX, e.clientY);
+    }
+  });
+
+  canvas.addEventListener('mousedown', e => {
+    isUsingTouch = false;
+    handleStart(e.clientX, e.clientY);
+  });
+  
   window.addEventListener('mouseup', handleEnd);
   canvas.addEventListener('wheel', handleWheel, { passive: false });
 
-  // Soporte táctil móvil (con Pinch-to-Zoom)
+  // Soporte táctil móvil (con Pinch-to-Zoom y desactivación de Hover)
   canvas.addEventListener('touchstart', e => {
+    isUsingTouch = true;
+    mouseX = -1000;
+    mouseY = -1000;
+    
     if (e.touches.length === 2) {
       initialTouchDist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
@@ -1226,6 +1412,10 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       viewFov = 75; // reset zoom
       focusedObject = null;
       labelOpacity = 0.0;
+      currentFocusType = null;
+      mouseX = -1000;
+      mouseY = -1000;
+      isUsingTouch = false;
       currentDate = new Date();
       if (!animationFrameId) render();
     },
