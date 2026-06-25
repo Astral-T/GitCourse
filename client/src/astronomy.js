@@ -757,29 +757,41 @@ function generateBackgroundStars() {
   ];
   
   let famousIndex = 0;
-  // Filtrado por contaminación lumínica: Solo mostramos 150 estrellas de iluminación importante
-  for (let i = 0; i < 150; i++) {
-    const isVeryBright = Math.random() > 0.65; // 35% de estrellas son muy brillantes
+  // 1. Estrellas principales/brillantes (Magnitudes 0.5 a 3.5)
+  for (let i = 0; i < 200; i++) {
+    const isVeryBright = Math.random() > 0.65;
     const name = (isVeryBright && famousIndex < famousStarNames.length) ? famousStarNames[famousIndex++] : null;
+    
+    let magnitude;
+    if (name) {
+      magnitude = 0.5 + Math.random() * 2.0; // mag 0.5 a 2.5
+    } else if (isVeryBright) {
+      magnitude = 2.0 + Math.random() * 1.5; // mag 2.0 a 3.5
+    } else {
+      magnitude = 3.5 + Math.random() * 1.0; // mag 3.5 a 4.5
+    }
+
     backgroundStars.push({
       ra: Math.random() * 24,       // 0 a 24 horas
       dec: Math.random() * 170 - 85, // -85 a +85 grados
-      size: isVeryBright ? Math.random() * 0.7 + 1.3 : Math.random() * 0.4 + 0.8,
-      opacity: isVeryBright ? Math.random() * 0.2 + 0.8 : Math.random() * 0.3 + 0.5,
-      glow: isVeryBright ? Math.random() * 6 + 4 : Math.random() * 2 + 1,
+      magnitude: magnitude,
+      size: name ? 2.2 : (isVeryBright ? 1.5 : 0.9),
+      opacity: 0.7 + Math.random() * 0.3,
       name: name
     });
   }
 }
 
-// 500 Micro-estrellas para el ruido de fondo infinito
+// 3000 Micro-estrellas de fondo para magnitudes 4.5 a 7.5
 let microStars = [];
 function generateMicroStars() {
   if (microStars.length > 0) return;
-  for (let i = 0; i < 500; i++) {
+  for (let i = 0; i < 3000; i++) {
+    const magnitude = 4.5 + Math.random() * 3.0; // magnitudes 4.5 a 7.5
     microStars.push({
       ra: Math.random() * 24,
       dec: Math.random() * 170 - 85,
+      magnitude: magnitude,
       opacity: Math.random() * 0.15 + 0.05 // 5% a 20%
     });
   }
@@ -856,7 +868,7 @@ function clipMoonPhase(ctx, x, y, r, pct) {
 }
 
 // Dibuja una estrella realista con núcleo central brillante y halo difuso exterior en capas (blanco, halo de color y dispersión)
-function drawRealisticStar(ctx, x, y, size, glowColor) {
+function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0) {
   let r = 255, g = 255, b = 255;
   if (glowColor.startsWith('#')) {
     const hex = glowColor.replace('#', '');
@@ -878,17 +890,17 @@ function drawRealisticStar(ctx, x, y, size, glowColor) {
     }
   }
 
-  // Capa 1: Halo difuminado muy amplio (Lens dispersion / Atmósfera) con opacidad muy baja (0.05)
+  // Capa 1: Halo difuminado muy amplio (Lens dispersion / Atmósfera) con opacidad muy baja (0.05 * opacity)
   ctx.save();
   ctx.beginPath();
   ctx.arc(x, y, size * 4.5, 0, 2 * Math.PI);
-  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.05)`;
+  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.05 * opacity})`;
   ctx.fill();
 
-  // Capa 2: Halo circular intermedio con opacidad baja (0.15)
+  // Capa 2: Halo circular intermedio con opacidad baja (0.15 * opacity)
   ctx.beginPath();
   ctx.arc(x, y, size * 2.2, 0, 2 * Math.PI);
-  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.15)`;
+  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.15 * opacity})`;
   ctx.shadowColor = `rgb(${r}, ${g}, ${b})`;
   ctx.shadowBlur = size * 3;
   ctx.fill();
@@ -897,8 +909,43 @@ function drawRealisticStar(ctx, x, y, size, glowColor) {
   // Capa 3: Núcleo central blanco puro y pequeño
   ctx.beginPath();
   ctx.arc(x, y, size * 0.45, 0, 2 * Math.PI);
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
   ctx.fill();
+}
+
+// Proyección gnomónica esférica tridimensional (esfera celeste a plano de pantalla)
+function projectSpherical(az, alt, viewAz, viewAlt, viewFov, width, height) {
+  const azRad = az * Math.PI / 180;
+  const altRad = alt * Math.PI / 180;
+  const vAzRad = viewAz * Math.PI / 180;
+  const vAltRad = viewAlt * Math.PI / 180;
+
+  // Vector unitario en coordenadas horizontales de Piura
+  const xs = Math.cos(altRad) * Math.sin(azRad);
+  const ys = Math.cos(altRad) * Math.cos(azRad);
+  const zs = Math.sin(altRad);
+
+  // 1. Rotación horizontal de yaw por -viewAz alrededor de Z
+  const x1 = xs * Math.cos(vAzRad) - ys * Math.sin(vAzRad);
+  const y1 = xs * Math.sin(vAzRad) + ys * Math.cos(vAzRad);
+  const z1 = zs;
+
+  // 2. Rotación vertical de pitch por -viewAlt alrededor del eje X local
+  const x2 = x1;
+  const y2 = y1 * Math.cos(vAltRad) + z1 * Math.sin(vAltRad);
+  const z2 = -y1 * Math.sin(vAltRad) + z1 * Math.cos(vAltRad);
+
+  // Si el objeto está por detrás o en el plano de proyección, descartar
+  if (y2 <= 0.01) return null;
+
+  // Focal en píxeles
+  const fovRad = viewFov * Math.PI / 180;
+  const f = (Math.min(width, height) / 2) / Math.tan(fovRad / 2);
+
+  return {
+    x: width / 2 + (x2 / y2) * f,
+    y: height / 2 - (z2 / y2) * f
+  };
 }
 
 const moonImg = new Image();
@@ -952,9 +999,13 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     ctx.fillStyle = '#010106';
     ctx.fillRect(0, 0, width, height);
 
-    const pixelsPerDegree = Math.min(width, height) / viewFov;
     const date = currentDate;
     const zoomFactor = 75 / viewFov;
+
+    // Magnitud estelar limitante según el zoom (FOV)
+    const limitSlope = (7.5 - 4.0) / (5 - 120);
+    const limitIntercept = 4.0 - limitSlope * 120;
+    const limitingMagnitude = limitSlope * viewFov + limitIntercept;
 
     // Colección de astros en pantalla para el sistema de enfoque/hover
     const focusCandidates = [];
@@ -964,79 +1015,81 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       const pos = raDecToAzAlt(neb.ra, neb.dec, date);
       if (pos.alt < -15) return;
       
-      let diffAz = pos.az - viewAz;
-      diffAz = (diffAz + 180) % 360;
-      if (diffAz < 0) diffAz += 360;
-      diffAz -= 180;
-      
-      const diffAlt = pos.alt - viewAlt;
-      const nx = width / 2 + diffAz * pixelsPerDegree;
-      const ny = height / 2 - diffAlt * pixelsPerDegree;
+      const coords = projectSpherical(pos.az, pos.alt, viewAz, viewAlt, viewFov, width, height);
+      if (!coords) return;
       
       const size = Math.min(width, height) * neb.sizeMult * zoomFactor * 0.85;
       const gradSize = Math.min(size, Math.max(width, height) * 1.8);
       
       ctx.save();
-      const grad = ctx.createRadialGradient(nx, ny, 5, nx, ny, gradSize);
+      // Suavizado de Nebulosa: rampa de opacidad difuminada para fundirse de forma invisible
+      const grad = ctx.createRadialGradient(coords.x, coords.y, gradSize * 0.01, coords.x, coords.y, gradSize);
+      const baseColor = neb.color1.substring(0, neb.color1.lastIndexOf(',')); // 'rgba(R, G, B'
       grad.addColorStop(0, neb.color1);
-      grad.addColorStop(0.5, neb.color2);
+      grad.addColorStop(0.25, `${baseColor}, 0.04)`);
+      grad.addColorStop(0.55, `${baseColor}, 0.015)`);
+      grad.addColorStop(0.85, `${baseColor}, 0.002)`);
       grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       
       ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.arc(nx, ny, gradSize, 0, 2 * Math.PI);
+      ctx.arc(coords.x, coords.y, gradSize, 0, 2 * Math.PI);
       ctx.fill();
       ctx.restore();
     });
 
-    // 2. Dibujar micro-estrellas de fondo (Regla 3: profundidad infinita)
+    // 2. Dibujar micro-estrellas de fondo (Filtro de densidad dinámica)
     microStars.forEach(ms => {
+      if (ms.magnitude > limitingMagnitude) return;
+
       const pos = raDecToAzAlt(ms.ra, ms.dec, date);
       if (pos.alt < 0) return;
       
-      let diffAz = pos.az - viewAz;
-      diffAz = (diffAz + 180) % 360;
-      if (diffAz < 0) diffAz += 360;
-      diffAz -= 180;
+      const coords = projectSpherical(pos.az, pos.alt, viewAz, viewAlt, viewFov, width, height);
+      if (!coords) return;
       
-      const diffAlt = pos.alt - viewAlt;
-      const x = width / 2 + diffAz * pixelsPerDegree;
-      const y = height / 2 - diffAlt * pixelsPerDegree;
-      
-      if (x >= 0 && x <= width && y >= 0 && y <= height) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${ms.opacity})`;
-        ctx.fillRect(x, y, 1, 1);
+      if (coords.x >= 0 && coords.x <= width && coords.y >= 0 && coords.y <= height) {
+        // Opacidad sutil dependiente del zoom y magnitud
+        let starOpacity = ms.opacity;
+        const margin = 0.5;
+        if (ms.magnitude > limitingMagnitude - margin) {
+          const fade = (limitingMagnitude - ms.magnitude) / margin;
+          starOpacity *= Math.max(0, Math.min(1, fade));
+        }
+        ctx.fillStyle = `rgba(255, 255, 255, ${starOpacity})`;
+        ctx.fillRect(coords.x, coords.y, 1, 1);
       }
     });
 
-    // 3. Dibujar estrellas de fondo brillantes (Regla 2: Aura realista)
+    // 3. Dibujar estrellas de fondo brillantes (Regla 2: Aura realista con filtro de magnitud)
     backgroundStars.forEach(star => {
+      if (star.magnitude > limitingMagnitude) return;
+
       const pos = raDecToAzAlt(star.ra, star.dec, date);
       if (pos.alt < 0) return; // por debajo del horizonte
       
-      let diffAz = pos.az - viewAz;
-      diffAz = (diffAz + 180) % 360;
-      if (diffAz < 0) diffAz += 360;
-      diffAz -= 180;
+      const coords = projectSpherical(pos.az, pos.alt, viewAz, viewAlt, viewFov, width, height);
+      if (!coords) return;
       
-      const diffAlt = pos.alt - viewAlt;
-      
-      const x = width / 2 + diffAz * pixelsPerDegree;
-      const y = height / 2 - diffAlt * pixelsPerDegree;
-      
-      if (x >= 0 && x <= width && y >= 0 && y <= height) {
+      if (coords.x >= 0 && coords.x <= width && coords.y >= 0 && coords.y <= height) {
+        let starOpacity = star.opacity;
+        const margin = 0.5;
+        if (star.magnitude > limitingMagnitude - margin) {
+          const fade = (limitingMagnitude - star.magnitude) / margin;
+          starOpacity *= Math.max(0, Math.min(1, fade));
+        }
+
         const renderSize = star.size * Math.sqrt(zoomFactor);
-        const renderGlow = star.glow * Math.sqrt(zoomFactor);
-        
         const glowColor = star.name != null ? '#b4dcff' : '#ffffff';
-        drawRealisticStar(ctx, x, y, renderSize, glowColor);
+        drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor, starOpacity);
 
         // Si la estrella de fondo tiene nombre, añadir a candidatos
         if (star.name) {
           focusCandidates.push({
             name: star.name,
             type: 'star',
-            x, y,
+            x: coords.x,
+            y: coords.y,
             size: renderSize
           });
         }
@@ -1049,20 +1102,14 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     // 4. Dibujar constelaciones (SOLO estrellas, CERO líneas, CERO etiquetas por defecto)
     positions.constellations.forEach(constel => {
       // Registrar el centro de la constelación como candidato
-      let centerDiffAz = constel.centerAz - viewAz;
-      centerDiffAz = (centerDiffAz + 180) % 360;
-      if (centerDiffAz < 0) centerDiffAz += 360;
-      centerDiffAz -= 180;
-      
-      const centerDiffAlt = constel.centerAlt - viewAlt;
-      const ccx = width / 2 + centerDiffAz * pixelsPerDegree;
-      const ccy = height / 2 - centerDiffAlt * pixelsPerDegree;
+      const centerCoords = projectSpherical(constel.centerAz, constel.centerAlt, viewAz, viewAlt, viewFov, width, height);
 
-      if (ccx >= 0 && ccx <= width && ccy >= 0 && ccy <= height && constel.centerAlt >= 0) {
+      if (centerCoords && constel.centerAlt >= 0) {
         focusCandidates.push({
           name: `Constelación: ${constel.name}`,
           type: 'constellation',
-          x: ccx, y: ccy,
+          x: centerCoords.x,
+          y: centerCoords.y,
           size: 15
         });
       }
@@ -1073,31 +1120,21 @@ export function initStellarViewer(canvas, onUpdateCoords) {
         
         if (starAlt < 0) return; // por debajo del horizonte
         
-        let diffAz = starAz - viewAz;
-        diffAz = (diffAz + 180) % 360;
-        if (diffAz < 0) diffAz += 360;
-        diffAz -= 180;
+        const coords = projectSpherical(starAz, starAlt, viewAz, viewAlt, viewFov, width, height);
+        if (!coords) return;
         
-        const diffAlt = starAlt - viewAlt;
-        
-        const x = width / 2 + diffAz * pixelsPerDegree;
-        const y = height / 2 - diffAlt * pixelsPerDegree;
-        
-        if (x >= 0 && x <= width && y >= 0 && y <= height) {
-          const renderSize = 2.5 * Math.sqrt(zoomFactor);
-          const renderGlow = 8 * Math.sqrt(zoomFactor);
+        const renderSize = 2.5 * Math.sqrt(zoomFactor);
+        const glowColor = star.name === 'Betelgeuse' ? '#ff7850' : '#00e5ff';
+        drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor);
 
-          const glowColor = star.name === 'Betelgeuse' ? '#ff7850' : '#00e5ff';
-          drawRealisticStar(ctx, x, y, renderSize, glowColor);
-
-          // Registrar estrella
-          focusCandidates.push({
-            name: `${star.name} (${constel.name})`,
-            type: 'constellation_star',
-            x, y,
-            size: renderSize
-          });
-        }
+        // Registrar estrella
+        focusCandidates.push({
+          name: `${star.name} (${constel.name})`,
+          type: 'constellation_star',
+          x: coords.x,
+          y: coords.y,
+          size: renderSize
+        });
       });
     });
 
@@ -1107,17 +1144,13 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       if (astro.isDayOnly && isNight) return;
 
       const pos = positions.astros[astro.id] || { az: 0, alt: -10 };
-      // Regla estricta 1: Si un astro está por debajo del horizonte, NO se renderiza
       if (pos.alt <= 0) return;
 
-      let diffAz = pos.az - viewAz;
-      diffAz = (diffAz + 180) % 360;
-      if (diffAz < 0) diffAz += 360;
-      diffAz -= 180;
-      
-      const diffAlt = pos.alt - viewAlt;
-      const ax = width / 2 + diffAz * pixelsPerDegree;
-      const ay = height / 2 - diffAlt * pixelsPerDegree;
+      const coords = projectSpherical(pos.az, pos.alt, viewAz, viewAlt, viewFov, width, height);
+      if (!coords) return;
+
+      const ax = coords.x;
+      const ay = coords.y;
 
       if (ax >= -100 && ax <= width + 100 && ay >= -100 && ay <= height + 100) {
         if (astro.id === 'sun') {
@@ -1180,23 +1213,15 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       }
     });
 
-    // 6. Dibujar horizonte cian y bloquear el suelo con negro (Regla del horizonte)
-    const horizonY = height / 2 + viewAlt * pixelsPerDegree;
+    // 6. Bloquear el suelo por debajo del horizonte con negro absoluto (Regla del horizonte - Sin línea azul)
+    const horizonAltRad = viewAlt * Math.PI / 180;
+    const currentFovRad = viewFov * Math.PI / 180;
+    const fLength = (Math.min(width, height) / 2) / Math.tan(currentFovRad / 2);
+    const horizonY = height / 2 + Math.tan(horizonAltRad) * fLength;
     if (horizonY < height) {
       ctx.fillStyle = '#000000';
       ctx.shadowBlur = 0;
-      ctx.fillRect(0, horizonY, width, height - horizonY);
-
-      // Línea de horizonte con brillo atmosférico cian
-      ctx.strokeStyle = 'rgba(0, 229, 255, 0.35)';
-      ctx.lineWidth = 2.5;
-      ctx.shadowColor = '#00e5ff';
-      ctx.shadowBlur = 6;
-      ctx.beginPath();
-      ctx.moveTo(0, horizonY);
-      ctx.lineTo(width, horizonY);
-      ctx.stroke();
-      ctx.shadowBlur = 0; // reset
+      ctx.fillRect(0, Math.max(0, horizonY), width, height - Math.max(0, horizonY));
     }
 
     // 7. Sistema de Identificación Diferenciado (Laptop: Hover 1.5s/2.5s | Celular: Centro 2.5s)
