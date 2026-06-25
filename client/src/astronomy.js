@@ -874,11 +874,26 @@ function clipMoonPhase(ctx, x, y, r, pct) {
   ctx.closePath();
 }
 
-// Dibuja una estrella realista con núcleo central brillante, halo difuso exterior en capas y destello en cruz (diffraction spikes) si aplica
+// Dibuja una estrella realista usando ÚNICAMENTE degradados radiales difuminados y destello en cruz ultra fino
 function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0, drawSpikes = false) {
   let r = 255, g = 255, b = 255;
-  if (glowColor.startsWith('#')) {
-    const hex = glowColor.replace('#', '');
+  
+  // Limpieza de colores (Regla 4)
+  let cleanGlow = glowColor;
+  if (glowColor === '#ebdcb9') {
+    // Júpiter: blanco-plateado brillante (Regla 4)
+    cleanGlow = '#f2f5fa';
+  } else if (glowColor === '#ff5f38' || glowColor === '#ff6b6b' || glowColor === '#ff7850') {
+    // Marte / Betelgeuse: sutil tono naranja-salmón etéreo (Regla 4)
+    cleanGlow = '#ff9671';
+  } else if (glowColor === '#ffcc00') {
+    // Sol: sutil amarillo-naranja cálido y suave, no café/sucio
+    cleanGlow = '#ffeaa7';
+  }
+
+  // Parsear color limpio
+  if (cleanGlow.startsWith('#')) {
+    const hex = cleanGlow.replace('#', '');
     if (hex.length === 6) {
       r = parseInt(hex.substring(0, 2), 16);
       g = parseInt(hex.substring(2, 4), 16);
@@ -888,8 +903,8 @@ function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0, drawSpikes
       g = parseInt(hex.charAt(1) + hex.charAt(1), 16);
       b = parseInt(hex.charAt(2) + hex.charAt(2), 16);
     }
-  } else if (glowColor.startsWith('rgba') || glowColor.startsWith('rgb')) {
-    const match = glowColor.match(/\d+/g);
+  } else if (cleanGlow.startsWith('rgba') || cleanGlow.startsWith('rgb')) {
+    const match = cleanGlow.match(/\d+/g);
     if (match) {
       r = parseInt(match[0]);
       g = parseInt(match[1]);
@@ -898,85 +913,81 @@ function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0, drawSpikes
   }
 
   const isMainAstro = drawSpikes;
-  const haloOpacity1 = isMainAstro ? 0.08 * opacity : 0.05 * opacity;
-  const haloOpacity2 = isMainAstro ? 0.35 * opacity : 0.15 * opacity;
-  const shadowBlurRadius = size * (isMainAstro ? 4.5 : 3.0);
-
-  // Capa 1: Halo difuminado muy amplio (Lens dispersion / Atmósfera)
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(x, y, size * (isMainAstro ? 5.5 : 4.5), 0, 2 * Math.PI);
-  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${haloOpacity1})`;
-  ctx.fill();
-
-  // Capa 2: Halo circular intermedio con opacidad y shadowBlur
-  ctx.beginPath();
-  ctx.arc(x, y, size * (isMainAstro ? 2.5 : 2.2), 0, 2 * Math.PI);
-  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${haloOpacity2})`;
-  ctx.shadowColor = `rgb(${r}, ${g}, ${b})`;
-  ctx.shadowBlur = shadowBlurRadius;
-  ctx.fill();
-  ctx.restore();
-
-  // Destello en Cruz para Planetas y Astros Mayores (Diffraction Spikes)
-  if (drawSpikes && opacity > 0.15) {
-    const spikeLength = size * 12.0; // Spikes más largos y dramáticos
+  
+  // 1. Núcleo central blanco puro y muy pequeño (2px a 3px físico) - Regla 3
+  const coreRadius = isMainAstro ? 2.5 : Math.max(0.6, size * 0.4);
+  
+  // 2. Halo con degradado radial absoluto: del blanco central al color exterior y desvanecimiento invisible a 0.0 alpha (Regla 2)
+  const haloRadius = size * (isMainAstro ? 9.0 : 4.0);
+  if (haloRadius > 0) {
     ctx.save();
-    ctx.lineWidth = 1.0; // Cruz ultra fina de 1px
+    const radGrad = ctx.createRadialGradient(x, y, 0.5, x, y, haloRadius);
+    radGrad.addColorStop(0, `rgba(255, 255, 255, ${opacity})`);
+    radGrad.addColorStop(0.12, `rgba(${r}, ${g}, ${b}, ${0.85 * opacity})`);
+    radGrad.addColorStop(0.35, `rgba(${r}, ${g}, ${b}, ${0.25 * opacity})`);
+    radGrad.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, ${0.06 * opacity})`);
+    radGrad.addColorStop(1.0, `rgba(${r}, ${g}, ${b}, 0.0)`); // Cero bordes sólidos, fundido completo
+
+    ctx.beginPath();
+    ctx.arc(x, y, haloRadius, 0, 2 * Math.PI);
+    ctx.fillStyle = radGrad;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 3. Dibujar núcleo central blanco puro definido
+  ctx.beginPath();
+  ctx.arc(x, y, coreRadius, 0, 2 * Math.PI);
+  ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+  ctx.fill();
+
+  // 4. Destello en Cruz para Planetas y Astros Mayores (Regla 3)
+  if (isMainAstro && opacity > 0.15) {
+    const spikeLength = size * 16.0; // Largo pero ultra fino
+    ctx.save();
+    
+    // Hilos ultra finos (grosor de 0.5px a 1px) y transparentes (opacidad inicial 0.3)
+    ctx.lineWidth = 0.7; 
     ctx.globalAlpha = opacity;
-    
-    // Determinar color de las puntas (spikes) para hacer Venus y Júpiter más fríos
-    let sr = r, sg = g, sb = b;
-    if (glowColor === '#ebdcb9') { // Júpiter (blanco-arenoso)
-      sr = 230; sg = 242; sb = 255; // Tonalidad fría azul-blanco
-    } else if (glowColor === '#fff9d4') { // Venus (por si acaso)
-      sr = 224; sg = 238; sb = 255; // Tonalidad fría
-    }
-    
-    // Gradiente para punta horizontal (se desvanece suavemente hacia los extremos)
+
+    // Gradiente para punta horizontal (desvanecimiento lineal hacia la nada a los pocos píxeles)
     const gradH = ctx.createLinearGradient(x - spikeLength, y, x + spikeLength, y);
-    gradH.addColorStop(0, `rgba(${sr}, ${sg}, ${sb}, 0)`);
-    gradH.addColorStop(0.25, `rgba(${sr}, ${sg}, ${sb}, 0.01)`);
-    gradH.addColorStop(0.40, `rgba(${sr}, ${sg}, ${sb}, 0.15)`);
-    gradH.addColorStop(0.48, `rgba(${sr}, ${sg}, ${sb}, 0.55)`);
-    gradH.addColorStop(0.5, `rgba(255, 255, 255, 1.0)`);
-    gradH.addColorStop(0.52, `rgba(${sr}, ${sg}, ${sb}, 0.55)`);
-    gradH.addColorStop(0.60, `rgba(${sr}, ${sg}, ${sb}, 0.15)`);
-    gradH.addColorStop(0.75, `rgba(${sr}, ${sg}, ${sb}, 0.01)`);
-    gradH.addColorStop(1, `rgba(${sr}, ${sg}, ${sb}, 0)`);
-    
+    gradH.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
+    gradH.addColorStop(0.35, `rgba(${r}, ${g}, ${b}, 0.01)`);
+    gradH.addColorStop(0.44, `rgba(${r}, ${g}, ${b}, 0.06)`);
+    gradH.addColorStop(0.48, `rgba(${r}, ${g}, ${b}, 0.3)`); // Opacidad inicial 0.3 en cercanías del núcleo
+    gradH.addColorStop(0.5, `rgba(255, 255, 255, 0.8)`);
+    gradH.addColorStop(0.52, `rgba(${r}, ${g}, ${b}, 0.3)`);
+    gradH.addColorStop(0.56, `rgba(${r}, ${g}, ${b}, 0.06)`);
+    gradH.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, 0.01)`);
+    gradH.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+
     ctx.strokeStyle = gradH;
     ctx.beginPath();
     ctx.moveTo(x - spikeLength, y);
     ctx.lineTo(x + spikeLength, y);
     ctx.stroke();
 
-    // Gradiente para punta vertical (se desvanece suavemente hacia los extremos)
+    // Gradiente para punta vertical
     const gradV = ctx.createLinearGradient(x, y - spikeLength, x, y + spikeLength);
-    gradV.addColorStop(0, `rgba(${sr}, ${sg}, ${sb}, 0)`);
-    gradV.addColorStop(0.25, `rgba(${sr}, ${sg}, ${sb}, 0.01)`);
-    gradV.addColorStop(0.40, `rgba(${sr}, ${sg}, ${sb}, 0.15)`);
-    gradV.addColorStop(0.48, `rgba(${sr}, ${sg}, ${sb}, 0.55)`);
-    gradV.addColorStop(0.5, `rgba(255, 255, 255, 1.0)`);
-    gradV.addColorStop(0.52, `rgba(${sr}, ${sg}, ${sb}, 0.55)`);
-    gradV.addColorStop(0.60, `rgba(${sr}, ${sg}, ${sb}, 0.15)`);
-    gradV.addColorStop(0.75, `rgba(${sr}, ${sg}, ${sb}, 0.01)`);
-    gradV.addColorStop(1, `rgba(${sr}, ${sg}, ${sb}, 0)`);
-    
+    gradV.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
+    gradV.addColorStop(0.35, `rgba(${r}, ${g}, ${b}, 0.01)`);
+    gradV.addColorStop(0.44, `rgba(${r}, ${g}, ${b}, 0.06)`);
+    gradV.addColorStop(0.48, `rgba(${r}, ${g}, ${b}, 0.3)`);
+    gradV.addColorStop(0.5, `rgba(255, 255, 255, 0.8)`);
+    gradV.addColorStop(0.52, `rgba(${r}, ${g}, ${b}, 0.3)`);
+    gradV.addColorStop(0.56, `rgba(${r}, ${g}, ${b}, 0.06)`);
+    gradV.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, 0.01)`);
+    gradV.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+
     ctx.strokeStyle = gradV;
     ctx.beginPath();
     ctx.moveTo(x, y - spikeLength);
     ctx.lineTo(x, y + spikeLength);
     ctx.stroke();
-    
+
     ctx.restore();
   }
-
-  // Capa 3: Núcleo central blanco puro y pequeño
-  ctx.beginPath();
-  ctx.arc(x, y, size * 0.45, 0, 2 * Math.PI);
-  ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-  ctx.fill();
 }
 
 // Proyección gnomónica esférica tridimensional (esfera celeste a plano de pantalla)
@@ -1062,8 +1073,12 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       return;
     }
 
-    // Fondo base del cielo azul medianoche ultra oscuro (Regla 1: Nebulosas)
-    ctx.fillStyle = '#010106';
+    // Fondo base del cielo con un gradiente vertical extremadamente suave (Skyglow Atmosférico - Regla 1)
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+    skyGrad.addColorStop(0, '#030408');   // Azul medianoche ultra oscuro arriba
+    skyGrad.addColorStop(0.5, '#070913'); // Índigo profundo en el medio
+    skyGrad.addColorStop(1, '#0c0f1d');   // Gris espacial / luminiscencia sutil abajo
+    ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, width, height);
 
     const date = currentDate;
