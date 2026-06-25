@@ -165,9 +165,9 @@ const ASTRO_DETAILS = {
 const ASTROS = [
   { id: 'sun', name: 'Sol', type: 'star', color: '#ffcc00', size: 10, isDayOnly: true },
   { id: 'moon', name: 'Luna', type: 'moon', color: '#f4eedb', size: 9 },
-  { id: 'jupiter', name: 'Júpiter', type: 'planet', color: '#e0a96d', size: 6, ra: 2.5, dec: 15 },
-  { id: 'venus', name: 'Venus', type: 'planet', color: '#ffea7a', size: 7, ra: 18.2, dec: -22 },
-  { id: 'mars', name: 'Marte', type: 'planet', color: '#ff5533', size: 5, ra: 8.5, dec: 22 },
+  { id: 'jupiter', name: 'Júpiter', type: 'planet', color: '#ebdcb9', size: 6, ra: 2.5, dec: 15 },
+  { id: 'venus', name: 'Venus', type: 'planet', color: '#e8f0fe', size: 7, ra: 18.2, dec: -22 },
+  { id: 'mars', name: 'Marte', type: 'planet', color: '#ff5f38', size: 5, ra: 8.5, dec: 22 },
 ];
 
 const CONSTELLATIONS = [
@@ -757,7 +757,7 @@ function generateBackgroundStars() {
   ];
   
   let famousIndex = 0;
-  // 1. Estrellas principales/brillantes (Magnitudes 0.5 a 3.5)
+  // 1. Estrellas principales/brillantes (Magnitudes 0.5 a 4.5)
   for (let i = 0; i < 200; i++) {
     const isVeryBright = Math.random() > 0.65;
     const name = (isVeryBright && famousIndex < famousStarNames.length) ? famousStarNames[famousIndex++] : null;
@@ -771,18 +771,25 @@ function generateBackgroundStars() {
       magnitude = 3.5 + Math.random() * 1.0; // mag 3.5 a 4.5
     }
 
+    // Jerarquía de Opacidad:
+    // Estrellas pequeñas de fondo (magnitudes >= 3.0) tienen opacidad reducida drásticamente (0.05 a 0.1)
+    // Estrellas grandes y famosas conservan brillo nítido
+    const opacity = name ? (0.85 + Math.random() * 0.15) 
+                         : (magnitude < 3.0 ? (0.5 + Math.random() * 0.3) 
+                                            : (0.05 + Math.random() * 0.05));
+
     backgroundStars.push({
       ra: Math.random() * 24,       // 0 a 24 horas
       dec: Math.random() * 170 - 85, // -85 a +85 grados
       magnitude: magnitude,
       size: name ? 2.2 : (isVeryBright ? 1.5 : 0.9),
-      opacity: 0.7 + Math.random() * 0.3,
+      opacity: opacity,
       name: name
     });
   }
 }
 
-// 3000 Micro-estrellas de fondo para magnitudes 4.5 a 7.5
+// 3000 Micro-estrellas de fondo para magnitudes 4.5 a 7.5 (opacidad reducida drásticamente entre 0.05 y 0.1)
 let microStars = [];
 function generateMicroStars() {
   if (microStars.length > 0) return;
@@ -792,7 +799,7 @@ function generateMicroStars() {
       ra: Math.random() * 24,
       dec: Math.random() * 170 - 85,
       magnitude: magnitude,
-      opacity: Math.random() * 0.15 + 0.05 // 5% a 20%
+      opacity: Math.random() * 0.05 + 0.05 // opacidad 0.05 a 0.1 (5% a 10%)
     });
   }
 }
@@ -867,8 +874,8 @@ function clipMoonPhase(ctx, x, y, r, pct) {
   ctx.closePath();
 }
 
-// Dibuja una estrella realista con núcleo central brillante y halo difuso exterior en capas (blanco, halo de color y dispersión)
-function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0) {
+// Dibuja una estrella realista con núcleo central brillante, halo difuso exterior en capas y destello en cruz (diffraction spikes) si aplica
+function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0, drawSpikes = false) {
   let r = 255, g = 255, b = 255;
   if (glowColor.startsWith('#')) {
     const hex = glowColor.replace('#', '');
@@ -890,21 +897,80 @@ function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0) {
     }
   }
 
-  // Capa 1: Halo difuminado muy amplio (Lens dispersion / Atmósfera) con opacidad muy baja (0.05 * opacity)
+  const isMainAstro = drawSpikes;
+  const haloOpacity1 = isMainAstro ? 0.08 * opacity : 0.05 * opacity;
+  const haloOpacity2 = isMainAstro ? 0.35 * opacity : 0.15 * opacity;
+  const shadowBlurRadius = size * (isMainAstro ? 4.5 : 3.0);
+
+  // Capa 1: Halo difuminado muy amplio (Lens dispersion / Atmósfera)
   ctx.save();
   ctx.beginPath();
-  ctx.arc(x, y, size * 4.5, 0, 2 * Math.PI);
-  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.05 * opacity})`;
+  ctx.arc(x, y, size * (isMainAstro ? 5.5 : 4.5), 0, 2 * Math.PI);
+  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${haloOpacity1})`;
   ctx.fill();
 
-  // Capa 2: Halo circular intermedio con opacidad baja (0.15 * opacity)
+  // Capa 2: Halo circular intermedio con opacidad y shadowBlur
   ctx.beginPath();
-  ctx.arc(x, y, size * 2.2, 0, 2 * Math.PI);
-  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.15 * opacity})`;
+  ctx.arc(x, y, size * (isMainAstro ? 2.5 : 2.2), 0, 2 * Math.PI);
+  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${haloOpacity2})`;
   ctx.shadowColor = `rgb(${r}, ${g}, ${b})`;
-  ctx.shadowBlur = size * 3;
+  ctx.shadowBlur = shadowBlurRadius;
   ctx.fill();
   ctx.restore();
+
+  // Destello en Cruz para Planetas y Astros Mayores (Diffraction Spikes)
+  if (drawSpikes && opacity > 0.15) {
+    const spikeLength = size * 12.0; // Spikes más largos y dramáticos
+    ctx.save();
+    ctx.lineWidth = 1.0; // Cruz ultra fina de 1px
+    ctx.globalAlpha = opacity;
+    
+    // Determinar color de las puntas (spikes) para hacer Venus y Júpiter más fríos
+    let sr = r, sg = g, sb = b;
+    if (glowColor === '#ebdcb9') { // Júpiter (blanco-arenoso)
+      sr = 230; sg = 242; sb = 255; // Tonalidad fría azul-blanco
+    } else if (glowColor === '#fff9d4') { // Venus (por si acaso)
+      sr = 224; sg = 238; sb = 255; // Tonalidad fría
+    }
+    
+    // Gradiente para punta horizontal (se desvanece suavemente hacia los extremos)
+    const gradH = ctx.createLinearGradient(x - spikeLength, y, x + spikeLength, y);
+    gradH.addColorStop(0, `rgba(${sr}, ${sg}, ${sb}, 0)`);
+    gradH.addColorStop(0.25, `rgba(${sr}, ${sg}, ${sb}, 0.01)`);
+    gradH.addColorStop(0.40, `rgba(${sr}, ${sg}, ${sb}, 0.15)`);
+    gradH.addColorStop(0.48, `rgba(${sr}, ${sg}, ${sb}, 0.55)`);
+    gradH.addColorStop(0.5, `rgba(255, 255, 255, 1.0)`);
+    gradH.addColorStop(0.52, `rgba(${sr}, ${sg}, ${sb}, 0.55)`);
+    gradH.addColorStop(0.60, `rgba(${sr}, ${sg}, ${sb}, 0.15)`);
+    gradH.addColorStop(0.75, `rgba(${sr}, ${sg}, ${sb}, 0.01)`);
+    gradH.addColorStop(1, `rgba(${sr}, ${sg}, ${sb}, 0)`);
+    
+    ctx.strokeStyle = gradH;
+    ctx.beginPath();
+    ctx.moveTo(x - spikeLength, y);
+    ctx.lineTo(x + spikeLength, y);
+    ctx.stroke();
+
+    // Gradiente para punta vertical (se desvanece suavemente hacia los extremos)
+    const gradV = ctx.createLinearGradient(x, y - spikeLength, x, y + spikeLength);
+    gradV.addColorStop(0, `rgba(${sr}, ${sg}, ${sb}, 0)`);
+    gradV.addColorStop(0.25, `rgba(${sr}, ${sg}, ${sb}, 0.01)`);
+    gradV.addColorStop(0.40, `rgba(${sr}, ${sg}, ${sb}, 0.15)`);
+    gradV.addColorStop(0.48, `rgba(${sr}, ${sg}, ${sb}, 0.55)`);
+    gradV.addColorStop(0.5, `rgba(255, 255, 255, 1.0)`);
+    gradV.addColorStop(0.52, `rgba(${sr}, ${sg}, ${sb}, 0.55)`);
+    gradV.addColorStop(0.60, `rgba(${sr}, ${sg}, ${sb}, 0.15)`);
+    gradV.addColorStop(0.75, `rgba(${sr}, ${sg}, ${sb}, 0.01)`);
+    gradV.addColorStop(1, `rgba(${sr}, ${sg}, ${sb}, 0)`);
+    
+    ctx.strokeStyle = gradV;
+    ctx.beginPath();
+    ctx.moveTo(x, y - spikeLength);
+    ctx.lineTo(x, y + spikeLength);
+    ctx.stroke();
+    
+    ctx.restore();
+  }
 
   // Capa 3: Núcleo central blanco puro y pequeño
   ctx.beginPath();
@@ -959,6 +1025,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
   let viewAz = 0;
   let viewAlt = 20;
   let currentDate = new Date();
+  currentDate.setHours(22, 0, 0); // Establecer temporalmente a las 10 PM para simular cielo nocturno completo
 
   // Posición del mouse en laptop
   let mouseX = -1000;
@@ -1081,7 +1148,16 @@ export function initStellarViewer(canvas, onUpdateCoords) {
 
         const renderSize = star.size * Math.sqrt(zoomFactor);
         const glowColor = star.name != null ? '#b4dcff' : '#ffffff';
-        drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor, starOpacity);
+        const isFamous = star.name != null;
+        
+        if (!isFamous && star.magnitude >= 3.0) {
+          // Estrellas de fondo pequeñas (mag >= 3.0) son micro-puntos de 1px con opacidad de 0.05 a 0.1
+          const finalOpacity = Math.max(0.05, Math.min(0.1, starOpacity));
+          ctx.fillStyle = `rgba(255, 255, 255, ${finalOpacity})`;
+          ctx.fillRect(coords.x, coords.y, 1, 1);
+        } else {
+          drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor, starOpacity, isFamous);
+        }
 
         // Si la estrella de fondo tiene nombre, añadir a candidatos
         if (star.name) {
@@ -1125,7 +1201,8 @@ export function initStellarViewer(canvas, onUpdateCoords) {
         
         const renderSize = 2.5 * Math.sqrt(zoomFactor);
         const glowColor = star.name === 'Betelgeuse' ? '#ff7850' : '#00e5ff';
-        drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor);
+        const isSpikeStar = ['Betelgeuse', 'Rigel', 'Acrux', 'Mimosa', 'Gacrux'].includes(star.name);
+        drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor, 1.0, isSpikeStar);
 
         // Registrar estrella
         focusCandidates.push({
@@ -1155,7 +1232,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       if (ax >= -100 && ax <= width + 100 && ay >= -100 && ay <= height + 100) {
         if (astro.id === 'sun') {
           const renderSize = 20 * zoomFactor;
-          drawRealisticStar(ctx, ax, ay, renderSize, '#ffcc00');
+          drawRealisticStar(ctx, ax, ay, renderSize, '#ffcc00', 1.0, true);
 
           focusCandidates.push({
             name: astro.name,
@@ -1201,7 +1278,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
         } else {
           // Planetas (Regla 2: Puntos circulares de alta intensidad, radio ligeramente mayor y destello radial potente)
           const renderSize = astro.size * 1.4 * Math.sqrt(zoomFactor);
-          drawRealisticStar(ctx, ax, ay, renderSize, astro.color);
+          drawRealisticStar(ctx, ax, ay, renderSize, astro.color, 1.0, true);
 
           focusCandidates.push({
             name: astro.name,
