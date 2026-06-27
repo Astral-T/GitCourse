@@ -1,4 +1,5 @@
 // Módulo del Juego de la Ruleta y Globo Terráqueo 3D con Repetición Espaciada
+import * as THREE from 'three';
 
 const RULETA_COUNTRIES = [
   { code: 'PER', name: 'Perú', color: '#ff2a5f' },
@@ -146,146 +147,160 @@ export async function spinAndDiscover(canvas, onComplete) {
   });
 }
 
-// 2. GLOBO TERRÁQUEO 3D HOLOGRÁFICO (CANVAS)
-// Proyección 3D Ortográfica a pantalla 2D
-function project3D(lat, lon, rotLon, rotLat, radius, cx, cy) {
-  const phi = lat * Math.PI / 180;
-  const theta = lon * Math.PI / 180;
-  
-  // Coordenadas cartesianas iniciales
-  const x = Math.cos(phi) * Math.sin(theta);
-  const y = Math.sin(phi);
-  const z = Math.cos(phi) * Math.cos(theta);
-  
-  // Rotación en eje Y (longitud)
-  const cosLon = Math.cos(rotLon);
-  const sinLon = Math.sin(rotLon);
-  const x1 = x * cosLon - z * sinLon;
-  const z1 = x * sinLon + z * cosLon;
-  
-  // Rotación en eje X (latitud/inclinación)
-  const cosLat = Math.cos(rotLat);
-  const sinLat = Math.sin(rotLat);
-  const y2 = y * cosLat - z1 * sinLat;
-  const z2 = y * sinLat + z1 * cosLat;
-  
-  return {
-    x: cx + x1 * radius,
-    y: cy - y2 * radius,
-    visible: z2 > 0
-  };
+// 2. GLOBO TERRÁQUEO 3D REALISTA (THREE.JS / WEBGL) CON TEXTURA SATELITAL E ILUMINACIÓN ESPACIAL
+let globeRenderer = null;
+let globeScene = null;
+let globeCamera = null;
+let globeEarthMesh = null;
+let globeCountryMarkers = [];
+let isGlobeActiveTab = false;
+
+export function setGlobeActive(active) {
+  isGlobeActiveTab = active;
+  if (active && globeRenderer && globeScene && globeCamera) {
+    globeRenderer.render(globeScene, globeCamera);
+  }
 }
 
-export function drawGlobe3D(canvas) {
+export function resizeGlobeRenderer(width, height) {
+  if (globeRenderer && globeCamera) {
+    globeCamera.aspect = width / height;
+    globeCamera.updateProjectionMatrix();
+    globeRenderer.setSize(width, height);
+    if (globeScene) {
+      globeRenderer.render(globeScene, globeCamera);
+    }
+  }
+}
+
+function renderGlobeFrame() {
+  if (isGlobeActiveTab && globeRenderer && globeScene && globeCamera) {
+    globeRenderer.render(globeScene, globeCamera);
+  }
+}
+
+// Escuchador de visibilidad del sistema operativo/navegador
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && isGlobeActiveTab) {
+    renderGlobeFrame();
+  }
+});
+
+function latLonToVector3(lat, lon, radius) {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+  const x = -radius * Math.sin(phi) * Math.cos(theta);
+  const y = radius * Math.cos(phi);
+  const z = radius * Math.sin(phi) * Math.sin(theta);
+  return new THREE.Vector3(x, y, z);
+}
+
+function createTextSprite(text, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
   const ctx = canvas.getContext('2d');
-  const cx = canvas.width / 2;
-  const cy = canvas.height / 2;
-  // Agrandar radio si está en pantalla completa
-  const isFullscreen = document.body.classList.contains('globe-fullscreen-active');
-  const radius = isFullscreen ? Math.min(canvas.width, canvas.height) * 0.4 : canvas.width * 0.38;
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Fondo del globo (esfera de cristal)
-  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-  grad.addColorStop(0, 'rgba(12, 18, 38, 0.4)');
-  grad.addColorStop(0.8, 'rgba(12, 18, 38, 0.85)');
-  grad.addColorStop(1, 'rgba(0, 229, 255, 0.15)');
   
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
-  ctx.fillStyle = grad;
+  ctx.fillStyle = 'rgba(12, 18, 38, 0.85)';
+  if (ctx.roundRect) {
+    ctx.roundRect(8, 8, 240, 48, 10);
+  } else {
+    ctx.fillRect(8, 8, 240, 48);
+  }
   ctx.fill();
-  ctx.strokeStyle = 'rgba(0, 229, 255, 0.25)';
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
   ctx.stroke();
 
-  // Dibujar líneas de cuadrícula (latitudes)
-  ctx.strokeStyle = 'rgba(0, 229, 255, 0.04)';
-  ctx.lineWidth = 1;
-  for (let lat = -60; lat <= 60; lat += 30) {
-    ctx.beginPath();
-    for (let lon = -180; lon <= 180; lon += 5) {
-      const p = project3D(lat, lon, rotLon, rotLat, radius, cx, cy);
-      if (p.visible) {
-        if (lon === -180) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
-      }
-    }
-    ctx.stroke();
-  }
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 128, 32);
 
-  // Dibujar líneas de cuadrícula (longitudes)
-  for (let lon = -180; lon < 180; lon += 30) {
-    ctx.beginPath();
-    for (let lat = -80; lat <= 80; lat += 5) {
-      const p = project3D(lat, lon, rotLon, rotLat, radius, cx, cy);
-      if (p.visible) {
-        if (lat === -80) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
-      }
-    }
-    ctx.stroke();
-  }
-
-  // Dibujar puntos brillantes de los países
-  const time = Date.now() / 180;
-  const projectedDots = [];
-
-  GLOBE_COUNTRIES.forEach(country => {
-    const p = project3D(country.lat, country.lon, rotLon, rotLat, radius, cx, cy);
-    if (p.visible) {
-      projectedDots.push({
-        code: country.code,
-        name: country.name,
-        color: country.color,
-        x: p.x,
-        y: p.y
-      });
-
-      // Anillo pulsante exterior
-      const pulseSize = 6 + 4 * Math.sin(time + country.name.charCodeAt(0));
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, pulseSize, 0, 2 * Math.PI);
-      ctx.strokeStyle = country.color + '44';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      // Punto central
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 4, 0, 2 * Math.PI);
-      ctx.fillStyle = country.color;
-      ctx.shadowColor = country.color;
-      ctx.shadowBlur = 8;
-      ctx.fill();
-      ctx.shadowBlur = 0; // reset
-
-      // Texto de país
-      ctx.fillStyle = '#ffffff';
-      ctx.font = isFullscreen ? 'bold 12px sans-serif' : '10px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(country.name, p.x + 8, p.y + 3);
-    }
-  });
-
-  return projectedDots;
+  const texture = new THREE.CanvasTexture(canvas);
+  const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  const sprite = new THREE.Sprite(spriteMaterial);
+  sprite.scale.set(0.65, 0.16, 1);
+  return sprite;
 }
 
 export function initGlobe3D(canvas) {
-  let projectedDots = [];
-  
-  const renderLoop = () => {
-    // Rotación lenta automática si no se está arrastrando
-    if (!isDraggingGlobe && !document.body.classList.contains('globe-fullscreen-active')) {
-      rotLon += 0.002;
-    }
-    projectedDots = drawGlobe3D(canvas);
-    requestAnimationFrame(renderLoop);
-  };
+  const width = canvas.width || 280;
+  const height = canvas.height || 280;
 
-  requestAnimationFrame(renderLoop);
+  // 1. Inicializar Escena, Cámara y Renderer WebGL de Three.js
+  globeScene = new THREE.Scene();
+  globeCamera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+  globeCamera.position.z = 5.2;
 
-  // Arrastre para rotar el globo
+  globeRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  globeRenderer.setSize(width, height);
+  globeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  // 3. Iluminación Espacial (Sombreado Dinámico - Luz Sol del Espacio)
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.25); // Luz suave ambiental en el lado oscuro
+  globeScene.add(ambientLight);
+
+  const sunLight = new THREE.DirectionalLight(0xffffff, 1.8);
+  sunLight.position.set(6, 4, 5); // Luz solar direccional simulando el Sol en una esquina
+  globeScene.add(sunLight);
+
+  // 2. Textura Fotográfica Optimizada de Satélite (NASA / Blue Marble 2K lightweight)
+  const textureLoader = new THREE.TextureLoader();
+  const earthTexture = textureLoader.load(
+    'https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/textures/planets/earth_atmos_2048.jpg',
+    () => { renderGlobeFrame(); }
+  );
+
+  // Esfera 3D de la Tierra
+  const earthGeo = new THREE.SphereGeometry(2, 64, 64);
+  const earthMat = new THREE.MeshStandardMaterial({
+    map: earthTexture,
+    roughness: 0.7,
+    metalness: 0.1
+  });
+  globeEarthMesh = new THREE.Mesh(earthGeo, earthMat);
+  globeScene.add(globeEarthMesh);
+
+  // Atmósfera exterior azulada sutil
+  const atmosGeo = new THREE.SphereGeometry(2.025, 32, 32);
+  const atmosMat = new THREE.MeshBasicMaterial({
+    color: 0x00e5ff,
+    transparent: true,
+    opacity: 0.1,
+    side: THREE.BackSide
+  });
+  const atmosMesh = new THREE.Mesh(atmosGeo, atmosMat);
+  globeScene.add(atmosMesh);
+
+  // Crear Nodos 3D y Etiquetas de Países en la Esfera
+  globeCountryMarkers = [];
+  GLOBE_COUNTRIES.forEach(country => {
+    const markerGroup = new THREE.Group();
+    const pos = latLonToVector3(country.lat, country.lon, 2.015);
+    markerGroup.position.copy(pos);
+
+    // Pin 3D brillante
+    const pinGeo = new THREE.SphereGeometry(0.045, 16, 16);
+    const pinMat = new THREE.MeshBasicMaterial({ color: country.color });
+    const pinMesh = new THREE.Mesh(pinGeo, pinMat);
+    pinMesh.userData = { countryCode: country.code, countryName: country.name };
+    markerGroup.add(pinMesh);
+    globeCountryMarkers.push(pinMesh);
+
+    // Etiqueta flotante 3D
+    const sprite = createTextSprite(country.name, country.color);
+    sprite.position.copy(pos.clone().multiplyScalar(0.08));
+    markerGroup.add(sprite);
+
+    globeEarthMesh.add(markerGroup);
+  });
+
+  // 4. Optimización de Rendimiento (Cero Lag): Renderizado Bajo Demanda (SOLO al interactuar)
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+
   const startDrag = (clientX, clientY) => {
     isDraggingGlobe = true;
     startX = clientX;
@@ -293,25 +308,39 @@ export function initGlobe3D(canvas) {
   };
 
   const moveDrag = (clientX, clientY) => {
-    if (!isDraggingGlobe) return;
+    if (!isDraggingGlobe || !globeEarthMesh) return;
     const dx = clientX - startX;
     const dy = clientY - startY;
-    
     startX = clientX;
     startY = clientY;
 
-    // Actualizar ángulos
-    rotLon += dx * 0.006;
-    rotLat += dy * 0.006;
+    globeEarthMesh.rotation.y += dx * 0.008;
+    globeEarthMesh.rotation.x += dy * 0.008;
 
-    // Capping de latitud para no voltear los polos
-    const maxLat = Math.PI / 2.5;
-    if (rotLat > maxLat) rotLat = maxLat;
-    if (rotLat < -maxLat) rotLat = -maxLat;
+    const maxRotX = Math.PI / 2.5;
+    if (globeEarthMesh.rotation.x > maxRotX) globeEarthMesh.rotation.x = maxRotX;
+    if (globeEarthMesh.rotation.x < -maxRotX) globeEarthMesh.rotation.x = -maxRotX;
+
+    renderGlobeFrame(); // Renderizar SOLO mientras se arrastra
   };
 
   const endDrag = () => {
     isDraggingGlobe = false;
+  };
+
+  const checkPointerHover = (clientX, clientY) => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -(((clientY - rect.top) / rect.height) * 2 - 1);
+
+    raycaster.setFromCamera(mouse, globeCamera);
+    const intersects = raycaster.intersectObjects(globeCountryMarkers);
+    
+    if (intersects.length > 0) {
+      canvas.style.cursor = 'pointer';
+    } else {
+      canvas.style.cursor = isDraggingGlobe ? 'grabbing' : 'grab';
+    }
   };
 
   canvas.addEventListener('mousedown', e => startDrag(e.clientX, e.clientY));
@@ -319,25 +348,7 @@ export function initGlobe3D(canvas) {
     if (isDraggingGlobe) {
       moveDrag(e.clientX, e.clientY);
     } else {
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const clickX = (e.clientX - rect.left) * scaleX;
-      const clickY = (e.clientY - rect.top) * scaleY;
-      
-      let isNearCountry = false;
-      projectedDots.forEach(dot => {
-        const dist = Math.hypot(dot.x - clickX, dot.y - clickY);
-        if (dist < 18) {
-          isNearCountry = true;
-        }
-      });
-      
-      if (isNearCountry) {
-        canvas.style.cursor = 'pointer';
-      } else {
-        canvas.style.cursor = 'grab';
-      }
+      checkPointerHover(e.clientX, e.clientY);
     }
   });
   window.addEventListener('mouseup', endDrag);
@@ -350,30 +361,24 @@ export function initGlobe3D(canvas) {
   }, { passive: true });
   window.addEventListener('touchend', endDrag);
 
-  // Click en el canvas para seleccionar país
+  // Click Raycasting para abrir Modal del País
   canvas.addEventListener('click', e => {
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const clickX = (e.clientX - rect.left) * scaleX;
-    const clickY = (e.clientY - rect.top) * scaleY;
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
 
-    // Buscar si el click colisiona con algún dot de país proyectado
-    let clickedCountry = null;
-    let minDist = 18; // umbral de click de 18px
+    raycaster.setFromCamera(mouse, globeCamera);
+    const intersects = raycaster.intersectObjects(globeCountryMarkers);
 
-    projectedDots.forEach(dot => {
-      const dist = Math.hypot(dot.x - clickX, dot.y - clickY);
-      if (dist < minDist) {
-        minDist = dist;
-        clickedCountry = dot;
-      }
-    });
-
-    if (clickedCountry) {
-      openGlobeCountryModal(clickedCountry.code);
+    if (intersects.length > 0) {
+      const clickedCode = intersects[0].object.userData.countryCode;
+      openGlobeCountryModal(clickedCode);
     }
   });
+
+  // Renderizar fotograma inicial cuando la pestaña es activa
+  isGlobeActiveTab = !document.getElementById('globe-view-container')?.classList.contains('hidden');
+  renderGlobeFrame();
 }
 
 // 3. MODAL DE CURIOSIDADES Y QUIZ DEL GLOBO

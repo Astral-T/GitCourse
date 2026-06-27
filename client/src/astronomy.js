@@ -17,6 +17,18 @@ function getOffscreenCanvas(width, height) {
 function drawMoonPhaseHelper(ctx, cx, cy, r, pct, drawFullMoonFn) {
   ctx.save();
 
+  // Esfera base oscura para la silueta lunar no iluminada
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+  ctx.fillStyle = '#161d28';
+  ctx.shadowColor = 'rgba(0, 229, 255, 0.15)';
+  ctx.shadowBlur = 6;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
   const size = Math.ceil(r * 2 + 10);
   const tempCanvas = getOffscreenCanvas(size, size);
   const tCtx = tempCanvas.getContext('2d');
@@ -123,24 +135,36 @@ const ASTRO_DETAILS = {
     name: 'El Sol',
     desc: 'Nuestra estrella madre. En Piura, debido a su latitud ecuatorial, cruza el cenit con una inclinación casi vertical al mediodía.',
     illustration: (ctx, cx, cy, r) => {
+      ctx.save();
+      // Brillo solar exterior
       ctx.beginPath();
-      ctx.arc(cx, cy, r * 0.4, 0, 2 * Math.PI);
+      ctx.arc(cx, cy, r * 0.65, 0, 2 * Math.PI);
       ctx.fillStyle = '#ffcc00';
       ctx.shadowColor = '#ffaa00';
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 22;
       ctx.fill();
       ctx.shadowBlur = 0;
       
-      // Rayos de sol
-      ctx.strokeStyle = 'rgba(255, 204, 0, 0.4)';
-      ctx.lineWidth = 2;
+      // Núcleo brillante
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.65);
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(0.35, '#ffea66');
+      grad.addColorStop(1, '#ff9900');
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Rayos de sol vectoriales
+      ctx.strokeStyle = '#ffcc00';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
       for (let a = 0; a < 360; a += 45) {
         const rad = a * Math.PI / 180;
         ctx.beginPath();
-        ctx.moveTo(cx + r * 0.45 * Math.cos(rad), cy + r * 0.45 * Math.sin(rad));
-        ctx.lineTo(cx + r * 0.65 * Math.cos(rad), cy + r * 0.65 * Math.sin(rad));
+        ctx.moveTo(cx + (r * 0.78) * Math.cos(rad), cy + (r * 0.78) * Math.sin(rad));
+        ctx.lineTo(cx + (r * 1.08) * Math.cos(rad), cy + (r * 1.08) * Math.sin(rad));
         ctx.stroke();
       }
+      ctx.restore();
     }
   },
   'moon': {
@@ -148,10 +172,10 @@ const ASTRO_DETAILS = {
     desc: 'Nuestro único satélite natural. Controla las mareas y presenta fases que cambian a lo largo de un ciclo de 29.5 días.',
     illustration: (ctx, cx, cy, r) => {
       const moonPhase = calculateMoonPhase(new Date());
-      drawMoonPhaseHelper(ctx, cx, cy, r * 0.4, moonPhase.phasePercent, (tCtx, tCx, tCy, tR) => {
+      drawMoonPhaseHelper(ctx, cx, cy, r, moonPhase.phasePercent, (tCtx, tCx, tCy, tR) => {
         tCtx.beginPath();
         tCtx.arc(tCx, tCy, tR, 0, 2 * Math.PI);
-        tCtx.fillStyle = '#e2dfd2';
+        tCtx.fillStyle = '#f4eedb';
         tCtx.shadowColor = '#ffffff';
         tCtx.shadowBlur = 15;
         tCtx.fill();
@@ -162,7 +186,7 @@ const ASTRO_DETAILS = {
         tCtx.beginPath();
         tCtx.arc(tCx - tR*0.25, tCy - tR*0.25, tR*0.2, 0, 2*Math.PI);
         tCtx.arc(tCx + tR*0.35, tCy + tR*0.2, tR*0.15, 0, 2*Math.PI);
-        tCtx.arc(tCx - tR*0.1, tCy + tR*0.35, tR*0.12, 0, 2*Math.PI);
+        tCtx.arc(tCx - tR*0.1, tCy + tR*0.35, tR*0.11, 0, 2*Math.PI);
         tCtx.fill();
       });
     }
@@ -703,8 +727,8 @@ export function drawSkyDome(canvas, userAz, userAlt, date = new Date()) {
 }
 
 // 4. ACTUALIZADOR DE PANEL DE RECOMENDACIÓN / ASTRONÓMICO LATERAL
-// Muestra ilustración y descripción del astro apuntado, o la Luna por defecto
-export function updateAstronomyPanel(targetedAstro, moonPhaseData) {
+// Muestra ilustración y descripción del astro apuntado, o la Luna/Sol por defecto según sea Noche o Día
+export function updateAstronomyPanel(targetedAstro, moonPhaseData, date = new Date()) {
   const moonRenderEl = document.getElementById('moon-render');
   const phaseNameEl = document.getElementById('moon-phase-name');
   const illuminationEl = document.getElementById('moon-illumination');
@@ -712,13 +736,21 @@ export function updateAstronomyPanel(targetedAstro, moonPhaseData) {
   const recommendationsBox = document.querySelector('.astronomy-recommendations h4');
   const statsWrapper = document.getElementById('moon-stats-wrapper');
   const astroDescEl = document.getElementById('astro-description');
+  const cardHeaderTag = document.querySelector('.sky-info-card .card-header .tag');
 
   if (!moonRenderEl || !phaseNameEl || !illuminationEl || !cycleDaysLabel) return;
 
-  if (targetedAstro && ASTRO_DETAILS[targetedAstro.name || targetedAstro.id]) {
+  const ctx = moonRenderEl.getContext('2d');
+  ctx.clearRect(0, 0, moonRenderEl.width, moonRenderEl.height);
+  const cx = moonRenderEl.width / 2;
+  const cy = moonRenderEl.height / 2;
+
+  // Comprobar si se está apuntando a una constelación o planeta específico (diferente al vacio o sol/luna)
+  const isTargetingOther = targetedAstro && targetedAstro.id !== 'moon' && targetedAstro.id !== 'sun' && ASTRO_DETAILS[targetedAstro.name || targetedAstro.id];
+
+  if (isTargetingOther) {
     const detail = ASTRO_DETAILS[targetedAstro.name || targetedAstro.id];
     
-    // Cambiar texto
     phaseNameEl.innerHTML = `<span class="txt-cyan">Enfoque: ${detail.name}</span>`;
     
     if (statsWrapper) statsWrapper.classList.add('hidden');
@@ -727,30 +759,47 @@ export function updateAstronomyPanel(targetedAstro, moonPhaseData) {
       astroDescEl.classList.remove('hidden');
     }
     
-    if (recommendationsBox) {
-      recommendationsBox.textContent = "Apuntando en Piura:";
-    }
+    if (recommendationsBox) recommendationsBox.textContent = "Apuntando en Piura:";
+    if (cardHeaderTag) cardHeaderTag.textContent = "🔭 Enfoque Astronómico";
 
-    // Dibujar ilustración vectorial directamente en el canvas #moon-render
-    const ctx = moonRenderEl.getContext('2d');
-    ctx.clearRect(0, 0, moonRenderEl.width, moonRenderEl.height);
-    detail.illustration(ctx, moonRenderEl.width / 2, moonRenderEl.height / 2, 27.5);
+    detail.illustration(ctx, cx, cy, 26);
 
   } else {
-    // Si no apunta a nada, re-mostrar la Fase Lunar por defecto
-    phaseNameEl.textContent = moonPhaseData.phaseName;
-    
-    if (statsWrapper) statsWrapper.classList.remove('hidden');
-    if (astroDescEl) astroDescEl.classList.add('hidden');
+    // Si no se apunta a una constelación/planeta, mostramos por defecto según el horario (Día o Noche)
+    const hours = date.getHours();
+    const isNight = hours < 6 || hours >= 18;
 
-    illuminationEl.textContent = moonPhaseData.illumination;
-    cycleDaysLabel.textContent = moonPhaseData.daysToNext;
+    if (isNight) {
+      // De Noche: Mostrar la Luna
+      phaseNameEl.textContent = moonPhaseData.phaseName;
+      
+      if (statsWrapper) statsWrapper.classList.remove('hidden');
+      if (astroDescEl) astroDescEl.classList.add('hidden');
 
-    if (recommendationsBox) {
-      recommendationsBox.textContent = "Visibles hoy en Piura:";
+      illuminationEl.textContent = moonPhaseData.illumination;
+      cycleDaysLabel.textContent = moonPhaseData.daysToNext;
+
+      if (recommendationsBox) recommendationsBox.textContent = "Visibles hoy en Piura:";
+      if (cardHeaderTag) cardHeaderTag.textContent = "🌙 Fase de la Luna y Recomendaciones";
+
+      updateMoonVisual(moonPhaseData);
+
+    } else {
+      // De Día: Mostrar el Sol
+      const sunDetail = ASTRO_DETAILS['sun'];
+      phaseNameEl.innerHTML = `<span class="txt-cyan">${sunDetail.name}</span>`;
+
+      if (statsWrapper) statsWrapper.classList.add('hidden');
+      if (astroDescEl) {
+        astroDescEl.textContent = sunDetail.desc;
+        astroDescEl.classList.remove('hidden');
+      }
+
+      if (recommendationsBox) recommendationsBox.textContent = "Visible de día en Piura:";
+      if (cardHeaderTag) cardHeaderTag.textContent = "☀️ Observación Solar y Recomendaciones";
+
+      sunDetail.illustration(ctx, cx, cy, 26);
     }
-
-    updateMoonVisual(moonPhaseData);
   }
 }
 

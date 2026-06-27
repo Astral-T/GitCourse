@@ -17,7 +17,9 @@ import {
   startReviews, 
   loadPassport,
   initGlobe3D,
-  initGlobeModalEvents
+  initGlobeModalEvents,
+  setGlobeActive,
+  resizeGlobeRenderer
 } from './roulette.js';
 
 import { 
@@ -53,6 +55,9 @@ function initTabs() {
       document.getElementById(`tab-${target}`).classList.add('active');
 
       currentTab = target;
+
+      const isGlobeVisible = !document.getElementById('globe-view-container')?.classList.contains('hidden');
+      setGlobeActive(currentTab === 'learning' && isGlobeVisible);
 
       if (currentTab === 'learning') {
         refreshLearningData();
@@ -119,8 +124,8 @@ function initAstronomy() {
     // Calcular, dibujar y obtener recomendaciones + cuerpo enfocado
     const result = drawSkyDome(skyCanvas, az, alt, new Date());
 
-    // Actualizar panel lateral de la Luna / Constelaciones enfocas
-    updateAstronomyPanel(result.targetedAstro, moonData);
+    // Actualizar panel lateral de la Luna / Sol / Constelaciones enfocadas
+    updateAstronomyPanel(result.targetedAstro, moonData, new Date());
 
     // Actualizar lista de astros en pantalla
     if (recommendationsList) {
@@ -353,6 +358,7 @@ async function initApp() {
         rouletteView.classList.remove('hidden');
         globeView.classList.add('hidden');
         if (titleEl) titleEl.textContent = 'Ruleta de Países';
+        setGlobeActive(false);
       });
 
       btnModeGlobe.addEventListener('click', () => {
@@ -361,6 +367,7 @@ async function initApp() {
         globeView.classList.remove('hidden');
         rouletteView.classList.add('hidden');
         if (titleEl) titleEl.textContent = 'Globo Terráqueo 3D';
+        setGlobeActive(true);
       });
     }
 
@@ -371,13 +378,15 @@ async function initApp() {
         const isFull = document.body.classList.toggle('globe-fullscreen-active');
         btnFullscreenGlobe.textContent = isFull ? '✖' : 'Pantalla Completa ⛶';
         
+        let newWidth = 280;
+        let newHeight = 280;
         if (isFull) {
-          globeCanvas.width = Math.min(window.innerWidth, window.innerHeight) * 0.85;
-          globeCanvas.height = globeCanvas.width;
-        } else {
-          globeCanvas.width = 280;
-          globeCanvas.height = 280;
+          newWidth = Math.min(window.innerWidth, window.innerHeight) * 0.85;
+          newHeight = newWidth;
         }
+        globeCanvas.width = newWidth;
+        globeCanvas.height = newHeight;
+        resizeGlobeRenderer(newWidth, newHeight);
       });
     }
   }
