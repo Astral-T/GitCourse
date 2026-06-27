@@ -112,15 +112,13 @@
         <!-- Recomendaciones y Fase de la Luna -->
         <div class="sky-info-card card-style-c cyan">
           <div class="card-header">
-            <span class="tag">Fase de la Luna y Recomendaciones</span>
+            <span class="tag">🌙 Fase de la Luna y Recomendaciones</span>
           </div>
           
           <!-- Estado Lunar -->
           <div class="moon-section">
             <div class="moon-visual">
-              <div class="moon-sphere" id="moon-render">
-                <div class="moon-shadow" id="moon-shadow-overlay"></div>
-              </div>
+              <canvas id="moon-render" width="70" height="70" class="moon-canvas"></canvas>
             </div>
             <div class="moon-details">
               <h3 id="moon-phase-name">Luna Llena</h3>

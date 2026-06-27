@@ -4,6 +4,119 @@
 const BASE_NEW_MOON = new Date('2024-01-11T11:57:00Z');
 const SYNODIC_MONTH = 29.530588853; // Ciclo lunar en días
 
+let offscreenCanvas = null;
+function getOffscreenCanvas(width, height) {
+  if (!offscreenCanvas) {
+    offscreenCanvas = document.createElement('canvas');
+  }
+  if (offscreenCanvas.width < width) offscreenCanvas.width = width;
+  if (offscreenCanvas.height < height) offscreenCanvas.height = height;
+  return offscreenCanvas;
+}
+
+function drawMoonPhaseHelper(ctx, cx, cy, r, pct, drawFullMoonFn) {
+  ctx.save();
+
+  const size = Math.ceil(r * 2 + 10);
+  const tempCanvas = getOffscreenCanvas(size, size);
+  const tCtx = tempCanvas.getContext('2d');
+  tCtx.clearRect(0, 0, size, size);
+
+  const tCx = size / 2;
+  const tCy = size / 2;
+
+  tCtx.save();
+  tCtx.beginPath();
+  tCtx.arc(tCx, tCy, r, 0, 2 * Math.PI);
+  tCtx.clip();
+
+  if (pct < 0.03 || pct > 0.97) {
+    // Luna Nueva: totalmente transparente
+  } else if (pct >= 0.47 && pct <= 0.53) {
+    // Luna Llena: círculo completo
+    drawFullMoonFn(tCtx, tCx, tCy, r);
+  } else if (pct < 0.5) {
+    // Creciente (luz en el lado izquierdo en el Hemisferio Sur)
+    if (pct < 0.25) {
+      // Creciente cóncava: semi-círculo izquierdo menos semi-elipse izquierda
+      tCtx.beginPath();
+      tCtx.arc(tCx, tCy, r, -Math.PI / 2, Math.PI / 2, true);
+      tCtx.lineTo(tCx, tCy - r);
+      tCtx.fillStyle = '#ffffff';
+      tCtx.fill();
+
+      tCtx.globalCompositeOperation = 'destination-out';
+      tCtx.beginPath();
+      const ellipseRx = r * (1 - 4 * pct);
+      tCtx.ellipse(tCx, tCy, ellipseRx, r, 0, -Math.PI / 2, Math.PI / 2, true);
+      tCtx.fillStyle = '#ffffff';
+      tCtx.fill();
+      tCtx.globalCompositeOperation = 'source-over';
+
+      tCtx.globalCompositeOperation = 'source-in';
+      drawFullMoonFn(tCtx, tCx, tCy, r);
+    } else {
+      // Gíbea creciente: semi-círculo izquierdo más semi-elipse derecha
+      tCtx.beginPath();
+      tCtx.arc(tCx, tCy, r, -Math.PI / 2, Math.PI / 2, true);
+      tCtx.lineTo(tCx, tCy - r);
+      tCtx.fillStyle = '#ffffff';
+      tCtx.fill();
+
+      tCtx.beginPath();
+      const ellipseRx = r * (4 * pct - 1);
+      tCtx.ellipse(tCx, tCy, ellipseRx, r, 0, -Math.PI / 2, Math.PI / 2, false);
+      tCtx.fillStyle = '#ffffff';
+      tCtx.fill();
+
+      tCtx.globalCompositeOperation = 'source-in';
+      drawFullMoonFn(tCtx, tCx, tCy, r);
+    }
+  } else {
+    // Menguante (luz en el lado derecho en el Hemisferio Sur)
+    if (pct > 0.75) {
+      // Creciente menguante: semi-círculo derecho menos semi-elipse derecha
+      tCtx.beginPath();
+      tCtx.arc(tCx, tCy, r, -Math.PI / 2, Math.PI / 2, false);
+      tCtx.lineTo(tCx, tCy - r);
+      tCtx.fillStyle = '#ffffff';
+      tCtx.fill();
+
+      tCtx.globalCompositeOperation = 'destination-out';
+      tCtx.beginPath();
+      const ellipseRx = r * (4 * pct - 3);
+      tCtx.ellipse(tCx, tCy, ellipseRx, r, 0, -Math.PI / 2, Math.PI / 2, false);
+      tCtx.fillStyle = '#ffffff';
+      tCtx.fill();
+      tCtx.globalCompositeOperation = 'source-over';
+
+      tCtx.globalCompositeOperation = 'source-in';
+      drawFullMoonFn(tCtx, tCx, tCy, r);
+    } else {
+      // Gíbea menguante: semi-círculo derecho más semi-elipse izquierda
+      tCtx.beginPath();
+      tCtx.arc(tCx, tCy, r, -Math.PI / 2, Math.PI / 2, false);
+      tCtx.lineTo(tCx, tCy - r);
+      tCtx.fillStyle = '#ffffff';
+      tCtx.fill();
+
+      tCtx.beginPath();
+      const ellipseRx = r * (3 - 4 * pct);
+      tCtx.ellipse(tCx, tCy, ellipseRx, r, 0, -Math.PI / 2, Math.PI / 2, true);
+      tCtx.fillStyle = '#ffffff';
+      tCtx.fill();
+
+      tCtx.globalCompositeOperation = 'source-in';
+      drawFullMoonFn(tCtx, tCx, tCy, r);
+    }
+  }
+
+  tCtx.restore();
+
+  ctx.drawImage(tempCanvas, 0, 0, size, size, cx - tCx, cy - tCy, size, size);
+  ctx.restore();
+}
+
 // Detalles e ilustraciones vectoriales de los astros cuando son enfocados
 const ASTRO_DETAILS = {
   'sun': {
@@ -34,21 +147,24 @@ const ASTRO_DETAILS = {
     name: 'La Luna',
     desc: 'Nuestro único satélite natural. Controla las mareas y presenta fases que cambian a lo largo de un ciclo de 29.5 días.',
     illustration: (ctx, cx, cy, r) => {
-      ctx.beginPath();
-      ctx.arc(cx, cy, r * 0.4, 0, 2 * Math.PI);
-      ctx.fillStyle = '#e2dfd2';
-      ctx.shadowColor = '#ffffff';
-      ctx.shadowBlur = 15;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      
-      // Cráteres
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
-      ctx.beginPath();
-      ctx.arc(cx - r*0.1, cy - r*0.1, r*0.08, 0, 2*Math.PI);
-      ctx.arc(cx + r*0.15, cy + r*0.08, r*0.06, 0, 2*Math.PI);
-      ctx.arc(cx - r*0.05, cy + r*0.15, r*0.05, 0, 2*Math.PI);
-      ctx.fill();
+      const moonPhase = calculateMoonPhase(new Date());
+      drawMoonPhaseHelper(ctx, cx, cy, r * 0.4, moonPhase.phasePercent, (tCtx, tCx, tCy, tR) => {
+        tCtx.beginPath();
+        tCtx.arc(tCx, tCy, tR, 0, 2 * Math.PI);
+        tCtx.fillStyle = '#e2dfd2';
+        tCtx.shadowColor = '#ffffff';
+        tCtx.shadowBlur = 15;
+        tCtx.fill();
+        tCtx.shadowBlur = 0;
+        
+        // Cráteres
+        tCtx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+        tCtx.beginPath();
+        tCtx.arc(tCx - tR*0.25, tCy - tR*0.25, tR*0.2, 0, 2*Math.PI);
+        tCtx.arc(tCx + tR*0.35, tCy + tR*0.2, tR*0.15, 0, 2*Math.PI);
+        tCtx.arc(tCx - tR*0.1, tCy + tR*0.35, tR*0.12, 0, 2*Math.PI);
+        tCtx.fill();
+      });
     }
   },
   'venus': {
@@ -228,32 +344,46 @@ export function calculateMoonPhase(date = new Date()) {
 }
 
 export function updateMoonVisual(moonData) {
-  const shadowOverlay = document.getElementById('moon-shadow-overlay');
+  const moonRenderEl = document.getElementById('moon-render');
   const phaseNameEl = document.getElementById('moon-phase-name');
   const illuminationEl = document.getElementById('moon-illumination');
   const cycleDaysEl = document.getElementById('moon-cycle-days');
 
-  if (!shadowOverlay || !phaseNameEl || !illuminationEl || !cycleDaysEl) return;
+  if (!moonRenderEl || !phaseNameEl || !illuminationEl || !cycleDaysEl) return;
 
   phaseNameEl.textContent = moonData.phaseName;
   illuminationEl.textContent = moonData.illumination;
   cycleDaysEl.textContent = moonData.daysToNext;
 
-  const pct = moonData.phasePercent;
+  const ctx = moonRenderEl.getContext('2d');
+  ctx.clearRect(0, 0, moonRenderEl.width, moonRenderEl.height);
 
-  if (pct >= 0 && pct < 0.5) {
-    const shadowWidth = (1 - (pct * 2)) * 100;
-    shadowOverlay.style.left = 'auto';
-    shadowOverlay.style.right = '0';
-    shadowOverlay.style.width = `${shadowWidth}%`;
-    shadowOverlay.style.borderRadius = shadowWidth > 50 ? '50% 0 0 50%' : '0';
-  } else {
-    const shadowWidth = ((pct - 0.5) * 2) * 100;
-    shadowOverlay.style.right = 'auto';
-    shadowOverlay.style.left = '0';
-    shadowOverlay.style.width = `${shadowWidth}%`;
-    shadowOverlay.style.borderRadius = shadowWidth > 50 ? '0 50% 50% 0' : '0';
-  }
+  const cx = moonRenderEl.width / 2;
+  const cy = moonRenderEl.height / 2;
+  const r = 24.5; // diameter 49 inside 70x70 canvas (leaves room for drop shadow filter glow)
+
+  drawMoonPhaseHelper(ctx, cx, cy, r, moonData.phasePercent, (tCtx, tCx, tCy, tR) => {
+    // Draw beautiful full moon sphere
+    tCtx.beginPath();
+    tCtx.arc(tCx, tCy, tR, 0, 2 * Math.PI);
+    tCtx.fillStyle = '#f4eedb';
+    tCtx.fill();
+
+    // Subtle craters or shading inside the moon widget
+    tCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+    tCtx.beginPath();
+    tCtx.arc(tCx - tR * 0.25, tCy - tR * 0.25, tR * 0.18, 0, 2 * Math.PI);
+    tCtx.arc(tCx + tR * 0.35, tCy + tR * 0.18, tR * 0.13, 0, 2 * Math.PI);
+    tCtx.arc(tCx - tR * 0.1, tCy + tR * 0.35, tR * 0.11, 0, 2 * Math.PI);
+    tCtx.fill();
+    
+    // Add inner shadow glow
+    tCtx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+    tCtx.lineWidth = 2;
+    tCtx.beginPath();
+    tCtx.arc(tCx, tCy, tR - 1, 0, 2 * Math.PI);
+    tCtx.stroke();
+  });
 }
 
 // 2. CÁLCULO DE COORDENADAS CELESTIALES PARA PIURA
@@ -470,13 +600,23 @@ export function drawSkyDome(canvas, userAz, userAlt, date = new Date()) {
       const ax = cx + dist * Math.cos(angle);
       const ay = cy + dist * Math.sin(angle);
 
-      ctx.beginPath();
-      ctx.arc(ax, ay, astro.size / 2, 0, 2 * Math.PI);
-      ctx.fillStyle = astro.color;
-      ctx.shadowColor = astro.color;
-      ctx.shadowBlur = 10;
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      if (astro.id === 'moon') {
+        const moonPhase = calculateMoonPhase(date);
+        drawMoonPhaseHelper(ctx, ax, ay, astro.size / 2, moonPhase.phasePercent, (tCtx, tCx, tCy, tR) => {
+          tCtx.beginPath();
+          tCtx.arc(tCx, tCy, tR, 0, 2 * Math.PI);
+          tCtx.fillStyle = astro.color;
+          tCtx.fill();
+        });
+      } else {
+        ctx.beginPath();
+        ctx.arc(ax, ay, astro.size / 2, 0, 2 * Math.PI);
+        ctx.fillStyle = astro.color;
+        ctx.shadowColor = astro.color;
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
 
       ctx.fillStyle = '#ffffff';
       ctx.font = '9px sans-serif';
@@ -566,7 +706,6 @@ export function drawSkyDome(canvas, userAz, userAlt, date = new Date()) {
 // Muestra ilustración y descripción del astro apuntado, o la Luna por defecto
 export function updateAstronomyPanel(targetedAstro, moonPhaseData) {
   const moonRenderEl = document.getElementById('moon-render');
-  const shadowOverlay = document.getElementById('moon-shadow-overlay');
   const phaseNameEl = document.getElementById('moon-phase-name');
   const illuminationEl = document.getElementById('moon-illumination');
   const cycleDaysLabel = document.getElementById('moon-cycle-days');
@@ -592,29 +731,10 @@ export function updateAstronomyPanel(targetedAstro, moonPhaseData) {
       recommendationsBox.textContent = "Apuntando en Piura:";
     }
 
-    // Dibujar ilustración vectorial en un canvas temporal sobre moonRender
-    shadowOverlay.style.display = 'none'; // ocultar sombra lunar
-    
-    // Asegurar que hay un canvas de ilustración
-    let illusCanvas = document.getElementById('astro-illustration-canvas');
-    if (!illusCanvas) {
-      illusCanvas = document.createElement('canvas');
-      illusCanvas.id = 'astro-illustration-canvas';
-      illusCanvas.width = 80;
-      illusCanvas.height = 80;
-      illusCanvas.style.position = 'absolute';
-      illusCanvas.style.top = '0';
-      illusCanvas.style.left = '0';
-      illusCanvas.style.width = '100%';
-      illusCanvas.style.height = '100%';
-      illusCanvas.style.zIndex = '5';
-      moonRenderEl.appendChild(illusCanvas);
-    }
-    illusCanvas.style.display = 'block';
-
-    const ctx = illusCanvas.getContext('2d');
-    ctx.clearRect(0, 0, 80, 80);
-    detail.illustration(ctx, 40, 40, 35);
+    // Dibujar ilustración vectorial directamente en el canvas #moon-render
+    const ctx = moonRenderEl.getContext('2d');
+    ctx.clearRect(0, 0, moonRenderEl.width, moonRenderEl.height);
+    detail.illustration(ctx, moonRenderEl.width / 2, moonRenderEl.height / 2, 27.5);
 
   } else {
     // Si no apunta a nada, re-mostrar la Fase Lunar por defecto
@@ -629,11 +749,6 @@ export function updateAstronomyPanel(targetedAstro, moonPhaseData) {
     if (recommendationsBox) {
       recommendationsBox.textContent = "Visibles hoy en Piura:";
     }
-
-    // Quitar canvas de ilustración y volver a mostrar sombra lunar
-    shadowOverlay.style.display = 'block';
-    const illusCanvas = document.getElementById('astro-illustration-canvas');
-    if (illusCanvas) illusCanvas.style.display = 'none';
 
     updateMoonVisual(moonPhaseData);
   }
@@ -771,12 +886,12 @@ function generateBackgroundStars() {
       magnitude = 3.5 + Math.random() * 1.0; // mag 3.5 a 4.5
     }
 
-    // Jerarquía de Opacidad:
-    // Estrellas pequeñas de fondo (magnitudes >= 3.0) tienen opacidad reducida drásticamente (0.05 a 0.1)
+    // Jerarquía de Opacidad (Incrementada para mayor brillo):
+    // Estrellas pequeñas de fondo (magnitudes >= 3.0) tienen opacidad moderada (0.3 a 0.45)
     // Estrellas grandes y famosas conservan brillo nítido
-    const opacity = name ? (0.85 + Math.random() * 0.15) 
-                         : (magnitude < 3.0 ? (0.5 + Math.random() * 0.3) 
-                                            : (0.05 + Math.random() * 0.05));
+    const opacity = name ? (0.9 + Math.random() * 0.1) 
+                         : (magnitude < 3.0 ? (0.7 + Math.random() * 0.2) 
+                                            : (0.3 + Math.random() * 0.15));
 
     backgroundStars.push({
       ra: Math.random() * 24,       // 0 a 24 horas
@@ -789,7 +904,7 @@ function generateBackgroundStars() {
   }
 }
 
-// 3000 Micro-estrellas de fondo para magnitudes 4.5 a 7.5 (opacidad reducida drásticamente entre 0.05 y 0.1)
+// 3000 Micro-estrellas de fondo para magnitudes 4.5 a 7.5 (opacidad entre 0.15 y 0.35 para mayor viveza)
 let microStars = [];
 function generateMicroStars() {
   if (microStars.length > 0) return;
@@ -799,7 +914,7 @@ function generateMicroStars() {
       ra: Math.random() * 24,
       dec: Math.random() * 170 - 85,
       magnitude: magnitude,
-      opacity: Math.random() * 0.05 + 0.05 // opacidad 0.05 a 0.1 (5% a 10%)
+      opacity: Math.random() * 0.2 + 0.15 // opacidad 0.15 a 0.35 (15% a 35%)
     });
   }
 }
@@ -875,7 +990,7 @@ function clipMoonPhase(ctx, x, y, r, pct) {
 }
 
 // Dibuja una estrella realista usando ÚNICAMENTE degradados radiales difuminados y destello en cruz ultra fino
-function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0, drawSpikes = false) {
+function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0, type = 'star') {
   let r = 255, g = 255, b = 255;
   
   // Limpieza de colores (Regla 4)
@@ -912,81 +1027,89 @@ function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0, drawSpikes
     }
   }
 
-  const isMainAstro = drawSpikes;
+  const colorString = `${r}, ${g}, ${b}`;
   
-  // 1. Núcleo central blanco puro y muy pequeño (2px a 3px físico) - Regla 3
-  const coreRadius = isMainAstro ? 2.5 : Math.max(0.6, size * 0.4);
-  
-  // 2. Halo con degradado radial absoluto: del blanco central al color exterior y desvanecimiento invisible a 0.0 alpha (Regla 2)
-  const haloRadius = size * (isMainAstro ? 9.0 : 4.0);
-  if (haloRadius > 0) {
-    ctx.save();
-    const radGrad = ctx.createRadialGradient(x, y, 0.5, x, y, haloRadius);
-    radGrad.addColorStop(0, `rgba(255, 255, 255, ${opacity})`);
-    radGrad.addColorStop(0.12, `rgba(${r}, ${g}, ${b}, ${0.85 * opacity})`);
-    radGrad.addColorStop(0.35, `rgba(${r}, ${g}, ${b}, ${0.25 * opacity})`);
-    radGrad.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, ${0.06 * opacity})`);
-    radGrad.addColorStop(1.0, `rgba(${r}, ${g}, ${b}, 0.0)`); // Cero bordes sólidos, fundido completo
+  // 1. Núcleo central blanco dinámico y proporcional a su magnitud astronómica real
+  let coreRadius = 0.8;
+  if (type === 'planet') {
+    coreRadius = 3.5; // Entre 3px y 4px
+  } else if (type === 'famous_star') {
+    coreRadius = 1.7; // Entre 1.5px y 2px
+  } else {
+    coreRadius = Math.max(0.5, Math.min(1.0, size * 0.5)); // Micro-estrellas de fondo: 0.5px a 1.0px
+  }
 
+  ctx.save();
+  ctx.shadowBlur = 0; // Desactivar cualquier resplandor circular artificial
+  
+  // Para Planetas: degradado radial extremadamente compacto (máximo 6px de radio, opacidad 0.1)
+  if (type === 'planet' && opacity > 0.05) {
+    const haloRadius = 6.0;
+    const radGrad = ctx.createRadialGradient(x, y, 1.0, x, y, haloRadius);
+    radGrad.addColorStop(0, `rgba(${colorString}, ${0.1 * opacity})`);
+    radGrad.addColorStop(1.0, `rgba(${colorString}, 0.0)`);
     ctx.beginPath();
     ctx.arc(x, y, haloRadius, 0, 2 * Math.PI);
     ctx.fillStyle = radGrad;
     ctx.fill();
-    ctx.restore();
   }
 
-  // 3. Dibujar núcleo central blanco puro definido
+  // Dibujar núcleo central blanco puro definido
   ctx.beginPath();
   ctx.arc(x, y, coreRadius, 0, 2 * Math.PI);
   ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
   ctx.fill();
+  ctx.restore();
 
-  // 4. Destello en Cruz para Planetas y Astros Mayores (Regla 3)
-  if (isMainAstro && opacity > 0.15) {
-    const spikeLength = size * 16.0; // Largo pero ultra fino
-    ctx.save();
-    
-    // Hilos ultra finos (grosor de 0.5px a 1px) y transparentes (opacidad inicial 0.3)
-    ctx.lineWidth = 0.7; 
-    ctx.globalAlpha = opacity;
+  // 2. Destellos lineales en cruz vectoriales (sin halos circulares gigantes)
+  if (opacity > 0.15) {
+    let spikeLength = 0;
+    let lineWidth = 0.5;
 
-    // Gradiente para punta horizontal (desvanecimiento lineal hacia la nada a los pocos píxeles)
-    const gradH = ctx.createLinearGradient(x - spikeLength, y, x + spikeLength, y);
-    gradH.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
-    gradH.addColorStop(0.35, `rgba(${r}, ${g}, ${b}, 0.01)`);
-    gradH.addColorStop(0.44, `rgba(${r}, ${g}, ${b}, 0.06)`);
-    gradH.addColorStop(0.48, `rgba(${r}, ${g}, ${b}, 0.3)`); // Opacidad inicial 0.3 en cercanías del núcleo
-    gradH.addColorStop(0.5, `rgba(255, 255, 255, 0.8)`);
-    gradH.addColorStop(0.52, `rgba(${r}, ${g}, ${b}, 0.3)`);
-    gradH.addColorStop(0.56, `rgba(${r}, ${g}, ${b}, 0.06)`);
-    gradH.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, 0.01)`);
-    gradH.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+    if (type === 'planet') {
+      spikeLength = 25.0; // Cruz de 25px para planetas
+      lineWidth = 1.0;    // Grosor fino (1px)
+    } else if (type === 'famous_star') {
+      spikeLength = 10.0; // Cruz de 10px para estrellas principales
+      lineWidth = 0.5;    // Grosor ultra fino (0.5px)
+    }
 
-    ctx.strokeStyle = gradH;
-    ctx.beginPath();
-    ctx.moveTo(x - spikeLength, y);
-    ctx.lineTo(x + spikeLength, y);
-    ctx.stroke();
+    if (spikeLength > 0) {
+      ctx.save();
+      ctx.lineWidth = lineWidth;
+      ctx.globalAlpha = opacity;
+      ctx.shadowBlur = 0;
 
-    // Gradiente para punta vertical
-    const gradV = ctx.createLinearGradient(x, y - spikeLength, x, y + spikeLength);
-    gradV.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
-    gradV.addColorStop(0.35, `rgba(${r}, ${g}, ${b}, 0.01)`);
-    gradV.addColorStop(0.44, `rgba(${r}, ${g}, ${b}, 0.06)`);
-    gradV.addColorStop(0.48, `rgba(${r}, ${g}, ${b}, 0.3)`);
-    gradV.addColorStop(0.5, `rgba(255, 255, 255, 0.8)`);
-    gradV.addColorStop(0.52, `rgba(${r}, ${g}, ${b}, 0.3)`);
-    gradV.addColorStop(0.56, `rgba(${r}, ${g}, ${b}, 0.06)`);
-    gradV.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, 0.01)`);
-    gradV.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+      // Eje Horizontal
+      const gradH = ctx.createLinearGradient(x - spikeLength, y, x + spikeLength, y);
+      gradH.addColorStop(0, `rgba(${colorString}, 0)`);
+      gradH.addColorStop(0.35, `rgba(${colorString}, ${0.2 * opacity})`);
+      gradH.addColorStop(0.5, `rgba(255, 255, 255, 1.0)`); // Blanco brillante en el centro
+      gradH.addColorStop(0.65, `rgba(${colorString}, ${0.2 * opacity})`);
+      gradH.addColorStop(1, `rgba(${colorString}, 0)`);
 
-    ctx.strokeStyle = gradV;
-    ctx.beginPath();
-    ctx.moveTo(x, y - spikeLength);
-    ctx.lineTo(x, y + spikeLength);
-    ctx.stroke();
+      ctx.strokeStyle = gradH;
+      ctx.beginPath();
+      ctx.moveTo(x - spikeLength, y);
+      ctx.lineTo(x + spikeLength, y);
+      ctx.stroke();
 
-    ctx.restore();
+      // Eje Vertical
+      const gradV = ctx.createLinearGradient(x, y - spikeLength, x, y + spikeLength);
+      gradV.addColorStop(0, `rgba(${colorString}, 0)`);
+      gradV.addColorStop(0.35, `rgba(${colorString}, ${0.2 * opacity})`);
+      gradV.addColorStop(0.5, `rgba(255, 255, 255, 1.0)`);
+      gradV.addColorStop(0.65, `rgba(${colorString}, ${0.2 * opacity})`);
+      gradV.addColorStop(1, `rgba(${colorString}, 0)`);
+
+      ctx.strokeStyle = gradV;
+      ctx.beginPath();
+      ctx.moveTo(x, y - spikeLength);
+      ctx.lineTo(x, y + spikeLength);
+      ctx.stroke();
+
+      ctx.restore();
+    }
   }
 }
 
@@ -1028,6 +1151,38 @@ function projectSpherical(az, alt, viewAz, viewAlt, viewFov, width, height) {
 const moonImg = new Image();
 moonImg.src = '/moon_realistic.png';
 
+function parseColor(color) {
+  if (color.startsWith('#')) {
+    const r = parseInt(color.substring(1, 3), 16);
+    const g = parseInt(color.substring(3, 5), 16);
+    const b = parseInt(color.substring(5, 7), 16);
+    return [r, g, b];
+  } else if (color.startsWith('rgb')) {
+    const match = color.match(/\d+/g);
+    if (match) {
+      return [parseInt(match[0]), parseInt(match[1]), parseInt(match[2])];
+    }
+  }
+  return [255, 255, 255];
+}
+
+function interpolateColor(color1, color2, factor) {
+  const [r1, g1, b1] = parseColor(color1);
+  const [r2, g2, b2] = parseColor(color2);
+  const r = Math.round(r1 + (r2 - r1) * factor);
+  const g = Math.round(g1 + (g2 - g1) * factor);
+  const b = Math.round(b1 + (b2 - b1) * factor);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function getSkyColorAtAlt(alt, dayFactor) {
+  // Asegurar rango de altitud razonable para la interpolación [0, 80]
+  const factor = Math.max(0, Math.min(1, alt / 80));
+  const nightColor = interpolateColor('#0c2f66', '#010309', factor); // Horizonte azul marino profundo a Cenit negro-azul
+  const dayColor = interpolateColor('#5ca0f2', '#0c4b9e', factor);   // Horizonte celeste claro a Cenit azul intenso
+  return interpolateColor(nightColor, dayColor, dayFactor);
+}
+
 export function initStellarViewer(canvas, onUpdateCoords) {
   const ctx = canvas.getContext('2d');
   let animationFrameId = null;
@@ -1064,25 +1219,58 @@ export function initStellarViewer(canvas, onUpdateCoords) {
 
     ctx.clearRect(0, 0, width, height);
 
-    // Regla 4: Si elevación es <= 0, pantalla negra absoluta (suelo bloquea la vista)
-    if (viewAlt <= 0) {
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, width, height);
-      onUpdateCoords(viewAz, viewAlt);
+    // Si las dimensiones son cero o inválidas, no renderizar este frame
+    if (width <= 0 || height <= 0 || isNaN(width) || isNaN(height)) {
       animationFrameId = requestAnimationFrame(render);
       return;
     }
 
-    // Fondo base del cielo con un gradiente vertical extremadamente suave (Skyglow Atmosférico - Regla 1)
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
-    skyGrad.addColorStop(0, '#030408');   // Azul medianoche ultra oscuro arriba
-    skyGrad.addColorStop(0.5, '#070913'); // Índigo profundo en el medio
-    skyGrad.addColorStop(1, '#0c0f1d');   // Gris espacial / luminiscencia sutil abajo
-    ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, width, height);
+    // Regla 4: Si elevación es <= 0, pantalla negra absoluta (suelo bloquea la vista)
+    if (viewAlt <= 0 || isNaN(viewAlt)) {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, width, height);
+      onUpdateCoords(viewAz, isNaN(viewAlt) ? 0 : viewAlt);
+      animationFrameId = requestAnimationFrame(render);
+      return;
+    }
 
     const date = currentDate;
-    const zoomFactor = 75 / viewFov;
+    const zoomFactor = isNaN(viewFov) || viewFov <= 0 ? 1 : 75 / viewFov;
+
+    // Obtener posiciones celestes dinámicas para Piura
+    const positions = calculateCelestialPositions(date);
+
+    // Determinar factor de día según la elevación del sol
+    const sunPos = positions.astros['sun'] || { alt: -10 };
+    let dayFactor = Math.max(0, Math.min(1, sunPos.alt / 12)); // Transición suave entre 0 y 12 grados de elevación
+    if (isNaN(dayFactor)) dayFactor = 0;
+
+    // Calcular elevación para la parte superior, media e inferior de la pantalla
+    let halfAngle = 0;
+    if (viewFov > 0 && !isNaN(viewFov)) {
+      const fLength = (Math.min(width, height) / 2) / Math.tan((viewFov * Math.PI / 180) / 2);
+      if (fLength > 0 && !isNaN(fLength)) {
+        halfAngle = Math.atan((height / 2) / fLength) * 180 / Math.PI;
+      }
+    }
+    if (isNaN(halfAngle)) halfAngle = 0;
+
+    const altTop = viewAlt + halfAngle;
+    const altMid = viewAlt;
+    const altBtm = viewAlt - halfAngle;
+
+    // Obtener colores dinámicos basados en la altitud de la vista y factor de día
+    const topColor = getSkyColorAtAlt(altTop, dayFactor);
+    const midColor = getSkyColorAtAlt(altMid, dayFactor);
+    const btmColor = getSkyColorAtAlt(altBtm, dayFactor);
+
+    // Fondo base del cielo con un gradiente vertical dinámico (día/noche y altitud)
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+    skyGrad.addColorStop(0, topColor);
+    skyGrad.addColorStop(0.5, midColor);
+    skyGrad.addColorStop(1, btmColor);
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, width, height);
 
     // Magnitud estelar limitante según el zoom (FOV)
     const limitSlope = (7.5 - 4.0) / (5 - 120);
@@ -1092,143 +1280,165 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     // Colección de astros en pantalla para el sistema de enfoque/hover
     const focusCandidates = [];
 
-    // 1. Dibujar nebulosas y polvo cósmico rotando con el firmamento
-    backgroundNebulas.forEach(neb => {
-      const pos = raDecToAzAlt(neb.ra, neb.dec, date);
-      if (pos.alt < -15) return;
-      
-      const coords = projectSpherical(pos.az, pos.alt, viewAz, viewAlt, viewFov, width, height);
-      if (!coords) return;
-      
-      const size = Math.min(width, height) * neb.sizeMult * zoomFactor * 0.85;
-      const gradSize = Math.min(size, Math.max(width, height) * 1.8);
-      
-      ctx.save();
-      // Suavizado de Nebulosa: rampa de opacidad difuminada para fundirse de forma invisible
-      const grad = ctx.createRadialGradient(coords.x, coords.y, gradSize * 0.01, coords.x, coords.y, gradSize);
-      const baseColor = neb.color1.substring(0, neb.color1.lastIndexOf(',')); // 'rgba(R, G, B'
-      grad.addColorStop(0, neb.color1);
-      grad.addColorStop(0.25, `${baseColor}, 0.04)`);
-      grad.addColorStop(0.55, `${baseColor}, 0.015)`);
-      grad.addColorStop(0.85, `${baseColor}, 0.002)`);
-      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(coords.x, coords.y, gradSize, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.restore();
-    });
-
-    // 2. Dibujar micro-estrellas de fondo (Filtro de densidad dinámica)
-    microStars.forEach(ms => {
-      if (ms.magnitude > limitingMagnitude) return;
-
-      const pos = raDecToAzAlt(ms.ra, ms.dec, date);
-      if (pos.alt < 0) return;
-      
-      const coords = projectSpherical(pos.az, pos.alt, viewAz, viewAlt, viewFov, width, height);
-      if (!coords) return;
-      
-      if (coords.x >= 0 && coords.x <= width && coords.y >= 0 && coords.y <= height) {
-        // Opacidad sutil dependiente del zoom y magnitud
-        let starOpacity = ms.opacity;
-        const margin = 0.5;
-        if (ms.magnitude > limitingMagnitude - margin) {
-          const fade = (limitingMagnitude - ms.magnitude) / margin;
-          starOpacity *= Math.max(0, Math.min(1, fade));
-        }
-        ctx.fillStyle = `rgba(255, 255, 255, ${starOpacity})`;
-        ctx.fillRect(coords.x, coords.y, 1, 1);
-      }
-    });
-
-    // 3. Dibujar estrellas de fondo brillantes (Regla 2: Aura realista con filtro de magnitud)
-    backgroundStars.forEach(star => {
-      if (star.magnitude > limitingMagnitude) return;
-
-      const pos = raDecToAzAlt(star.ra, star.dec, date);
-      if (pos.alt < 0) return; // por debajo del horizonte
-      
-      const coords = projectSpherical(pos.az, pos.alt, viewAz, viewAlt, viewFov, width, height);
-      if (!coords) return;
-      
-      if (coords.x >= 0 && coords.x <= width && coords.y >= 0 && coords.y <= height) {
-        let starOpacity = star.opacity;
-        const margin = 0.5;
-        if (star.magnitude > limitingMagnitude - margin) {
-          const fade = (limitingMagnitude - star.magnitude) / margin;
-          starOpacity *= Math.max(0, Math.min(1, fade));
-        }
-
-        const renderSize = star.size * Math.sqrt(zoomFactor);
-        const glowColor = star.name != null ? '#b4dcff' : '#ffffff';
-        const isFamous = star.name != null;
+    // 1. Dibujar nebulosas y polvo cósmico rotando con el firmamento (solo si no es de día pleno)
+    if (dayFactor < 0.95) {
+      backgroundNebulas.forEach(neb => {
+        const pos = raDecToAzAlt(neb.ra, neb.dec, date);
+        if (pos.alt < -15) return;
         
-        if (!isFamous && star.magnitude >= 3.0) {
-          // Estrellas de fondo pequeñas (mag >= 3.0) son micro-puntos de 1px con opacidad de 0.05 a 0.1
-          const finalOpacity = Math.max(0.05, Math.min(0.1, starOpacity));
-          ctx.fillStyle = `rgba(255, 255, 255, ${finalOpacity})`;
-          ctx.fillRect(coords.x, coords.y, 1, 1);
-        } else {
-          drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor, starOpacity, isFamous);
+        const coords = projectSpherical(pos.az, pos.alt, viewAz, viewAlt, viewFov, width, height);
+        if (!coords) return;
+        
+        const size = Math.min(width, height) * neb.sizeMult * zoomFactor * 0.85;
+        const gradSize = Math.min(size, Math.max(width, height) * 1.8);
+        
+        ctx.save();
+        // Opacidad de nebulosa se desvanece de día
+        const nebOpacityFactor = 1 - dayFactor;
+        const grad = ctx.createRadialGradient(coords.x, coords.y, gradSize * 0.01, coords.x, coords.y, gradSize);
+        const baseColor = neb.color1.substring(0, neb.color1.lastIndexOf(',')); // 'rgba(R, G, B'
+        grad.addColorStop(0, `${baseColor}, ${0.06 * nebOpacityFactor})`);
+        grad.addColorStop(0.25, `${baseColor}, ${0.04 * nebOpacityFactor})`);
+        grad.addColorStop(0.55, `${baseColor}, ${0.015 * nebOpacityFactor})`);
+        grad.addColorStop(0.85, `${baseColor}, ${0.002 * nebOpacityFactor})`);
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(coords.x, coords.y, gradSize, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+
+    // 2. Dibujar micro-estrellas de fondo (se desvanecen de día)
+    if (dayFactor < 0.95) {
+      microStars.forEach(ms => {
+        if (ms.magnitude > limitingMagnitude) return;
+
+        const pos = raDecToAzAlt(ms.ra, ms.dec, date);
+        if (pos.alt < 0) return;
+        
+        const coords = projectSpherical(pos.az, pos.alt, viewAz, viewAlt, viewFov, width, height);
+        if (!coords) return;
+        
+        if (coords.x >= 0 && coords.x <= width && coords.y >= 0 && coords.y <= height) {
+          // Opacidad sutil dependiente del zoom, magnitud y del factor de día
+          let starOpacity = ms.opacity * (1 - dayFactor);
+          // Forzar opacidad baja (0.1 a 0.3) para micro-estrellas
+          starOpacity = Math.max(0.1, Math.min(0.3, starOpacity));
+          
+          const starRadius = ms.magnitude >= 6.0 ? 0.5 : 0.8;
+          if (starOpacity > 0.01) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(coords.x, coords.y, starRadius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${starOpacity})`;
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+      });
+    }
+
+    // 3. Dibujar estrellas de fondo brillantes (Aura realista con filtro de magnitud, se desvanecen de día)
+    if (dayFactor < 0.95) {
+      backgroundStars.forEach(star => {
+        if (star.magnitude > limitingMagnitude) return;
+
+        const pos = raDecToAzAlt(star.ra, star.dec, date);
+        if (pos.alt < 0) return; // por debajo del horizonte
+        
+        const coords = projectSpherical(pos.az, pos.alt, viewAz, viewAlt, viewFov, width, height);
+        if (!coords) return;
+        
+        if (coords.x >= 0 && coords.x <= width && coords.y >= 0 && coords.y <= height) {
+          let starOpacity = star.opacity * (1 - dayFactor);
+          const margin = 0.5;
+          if (star.magnitude > limitingMagnitude - margin) {
+            const fade = (limitingMagnitude - star.magnitude) / margin;
+            starOpacity *= Math.max(0, Math.min(1, fade));
+          }
+
+          if (starOpacity > 0.01) {
+            const renderSize = star.size * Math.sqrt(zoomFactor);
+            const glowColor = star.name != null ? '#b4dcff' : '#ffffff';
+            const isFamous = star.name != null;
+            
+            if (!isFamous && star.magnitude >= 3.0) {
+              // Estrellas de fondo pequeñas
+              const starRadius = star.magnitude >= 4.0 ? 0.6 : 0.9;
+              const finalOpacity = Math.max(0.1, Math.min(0.3, starOpacity));
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(coords.x, coords.y, starRadius, 0, Math.PI * 2);
+              ctx.fillStyle = `rgba(255, 255, 255, ${finalOpacity})`;
+              ctx.fill();
+              ctx.restore();
+            } else {
+              // Estrellas principales/famosas (núcleo 1.5px a 2px y destello sutil)
+              const finalOpacity = Math.max(0.8, Math.min(1.0, starOpacity * 1.2));
+              drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor, finalOpacity, 'famous_star');
+            }
+
+            // Si la estrella de fondo tiene nombre, añadir a candidatos
+            if (star.name) {
+              focusCandidates.push({
+                name: star.name,
+                type: 'star',
+                x: coords.x,
+                y: coords.y,
+                size: renderSize
+              });
+            }
+          }
+        }
+      });
+    }
+
+    // 4. Dibujar constelaciones (SOLO estrellas, CERO líneas, CERO etiquetas por defecto, se desvanecen de día)
+    if (dayFactor < 0.95) {
+      positions.constellations.forEach(constel => {
+        // Registrar el centro de la constelación como candidato
+        const centerCoords = projectSpherical(constel.centerAz, constel.centerAlt, viewAz, viewAlt, viewFov, width, height);
+
+        if (centerCoords && constel.centerAlt >= 0) {
+          focusCandidates.push({
+            name: `Constelación: ${constel.name}`,
+            type: 'constellation',
+            x: centerCoords.x,
+            y: centerCoords.y,
+            size: 15
+          });
         }
 
-        // Si la estrella de fondo tiene nombre, añadir a candidatos
-        if (star.name) {
+        constel.stars.forEach(star => {
+          const starAz = (constel.centerAz + star.relX * 0.35 + 360) % 360;
+          const starAlt = constel.centerAlt - star.relY * 0.35;
+          
+          if (starAlt < 0) return; // por debajo del horizonte
+          
+          const coords = projectSpherical(starAz, starAlt, viewAz, viewAlt, viewFov, width, height);
+          if (!coords) return;
+          
+          const renderSize = 2.5 * Math.sqrt(zoomFactor);
+          const glowColor = star.name === 'Betelgeuse' ? '#ff7850' : '#00e5ff';
+          const isSpikeStar = ['Betelgeuse', 'Rigel', 'Acrux', 'Mimosa', 'Gacrux'].includes(star.name);
+          const starOpacity = Math.max(0.8, Math.min(1.0, 1.0 * (1 - dayFactor)));
+          const type = isSpikeStar ? 'famous_star' : 'star';
+          drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor, starOpacity, type);
+
+          // Registrar estrella
           focusCandidates.push({
-            name: star.name,
-            type: 'star',
+            name: `${star.name} (${constel.name})`,
+            type: 'constellation_star',
             x: coords.x,
             y: coords.y,
             size: renderSize
           });
-        }
-      }
-    });
-
-    // Obtener posiciones celestes dinámicas para Piura
-    const positions = calculateCelestialPositions(date);
-
-    // 4. Dibujar constelaciones (SOLO estrellas, CERO líneas, CERO etiquetas por defecto)
-    positions.constellations.forEach(constel => {
-      // Registrar el centro de la constelación como candidato
-      const centerCoords = projectSpherical(constel.centerAz, constel.centerAlt, viewAz, viewAlt, viewFov, width, height);
-
-      if (centerCoords && constel.centerAlt >= 0) {
-        focusCandidates.push({
-          name: `Constelación: ${constel.name}`,
-          type: 'constellation',
-          x: centerCoords.x,
-          y: centerCoords.y,
-          size: 15
-        });
-      }
-
-      constel.stars.forEach(star => {
-        const starAz = (constel.centerAz + star.relX * 0.35 + 360) % 360;
-        const starAlt = constel.centerAlt - star.relY * 0.35;
-        
-        if (starAlt < 0) return; // por debajo del horizonte
-        
-        const coords = projectSpherical(starAz, starAlt, viewAz, viewAlt, viewFov, width, height);
-        if (!coords) return;
-        
-        const renderSize = 2.5 * Math.sqrt(zoomFactor);
-        const glowColor = star.name === 'Betelgeuse' ? '#ff7850' : '#00e5ff';
-        const isSpikeStar = ['Betelgeuse', 'Rigel', 'Acrux', 'Mimosa', 'Gacrux'].includes(star.name);
-        drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor, 1.0, isSpikeStar);
-
-        // Registrar estrella
-        focusCandidates.push({
-          name: `${star.name} (${constel.name})`,
-          type: 'constellation_star',
-          x: coords.x,
-          y: coords.y,
-          size: renderSize
         });
       });
-    });
+    }
 
     // 5. Dibujar astros (Sol, Luna, Planetas) - Cero contaminación visual, auras realistas en capas
     const isNight = date.getHours() < 6 || date.getHours() > 18;
@@ -1246,8 +1456,15 @@ export function initStellarViewer(canvas, onUpdateCoords) {
 
       if (ax >= -100 && ax <= width + 100 && ay >= -100 && ay <= height + 100) {
         if (astro.id === 'sun') {
-          const renderSize = 20 * zoomFactor;
-          drawRealisticStar(ctx, ax, ay, renderSize, '#ffcc00', 1.0, true);
+          // Sol a escala real sin destellos (no brillar/no spikes)
+          const renderSize = 15 * zoomFactor;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(ax, ay, renderSize, 0, 2 * Math.PI);
+          ctx.fillStyle = '#ffcc00';
+          ctx.shadowBlur = 0; // Sin resplandor de estrella
+          ctx.fill();
+          ctx.restore();
 
           focusCandidates.push({
             name: astro.name,
@@ -1256,13 +1473,13 @@ export function initStellarViewer(canvas, onUpdateCoords) {
             size: renderSize
           });
         } else if (astro.id === 'moon') {
-          // Luna realista con brillo atmosférico exterior
+          // Luna realista con brillo atmosférico exterior (se desvanece de día)
           const renderSize = 15 * zoomFactor;
-          const moonPhase = calculateMoonPhase(date);
-          const pct = moonPhase.phasePercent;
+          const moonOpacity = 1 - dayFactor * 0.7; // Un poco visible durante el día
 
           // Brillo exterior de la luna
           ctx.save();
+          ctx.globalAlpha = moonOpacity;
           ctx.beginPath();
           ctx.arc(ax, ay, renderSize * 1.25, 0, 2 * Math.PI);
           ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
@@ -1271,18 +1488,21 @@ export function initStellarViewer(canvas, onUpdateCoords) {
           ctx.fill();
           ctx.restore();
 
-          if (moonImg.complete && moonImg.naturalWidth !== 0) {
-            ctx.save();
-            clipMoonPhase(ctx, ax, ay, renderSize, pct);
-            ctx.clip();
-            ctx.drawImage(moonImg, ax - renderSize, ay - renderSize, renderSize * 2, renderSize * 2);
-            ctx.restore();
-          } else {
-            ctx.beginPath();
-            ctx.arc(ax, ay, renderSize, 0, 2 * Math.PI);
-            ctx.fillStyle = '#f4eedb';
-            ctx.fill();
-          }
+          // Dibujar la textura de la Luna transparente directamente sin clips complejos ni blend modes especiales
+          ctx.save();
+          ctx.globalAlpha = moonOpacity;
+          const moonPhase = calculateMoonPhase(date);
+          drawMoonPhaseHelper(ctx, ax, ay, renderSize, moonPhase.phasePercent, (tCtx, tCx, tCy, tR) => {
+            if (moonImg.complete && moonImg.naturalWidth !== 0) {
+              tCtx.drawImage(moonImg, tCx - tR, tCy - tR, tR * 2, tR * 2);
+            } else {
+              tCtx.beginPath();
+              tCtx.arc(tCx, tCy, tR, 0, 2 * Math.PI);
+              tCtx.fillStyle = '#f4eedb';
+              tCtx.fill();
+            }
+          });
+          ctx.restore();
 
           focusCandidates.push({
             name: astro.name,
@@ -1291,9 +1511,12 @@ export function initStellarViewer(canvas, onUpdateCoords) {
             size: renderSize
           });
         } else {
-          // Planetas (Regla 2: Puntos circulares de alta intensidad, radio ligeramente mayor y destello radial potente)
+          // Planetas (se desvanecen mayormente de día)
           const renderSize = astro.size * 1.4 * Math.sqrt(zoomFactor);
-          drawRealisticStar(ctx, ax, ay, renderSize, astro.color, 1.0, true);
+          const planetOpacity = 1.0 * (1 - dayFactor * 0.85);
+          if (planetOpacity > 0.05) {
+            drawRealisticStar(ctx, ax, ay, renderSize, astro.color, planetOpacity, 'planet');
+          }
 
           focusCandidates.push({
             name: astro.name,
@@ -1305,16 +1528,9 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       }
     });
 
-    // 6. Bloquear el suelo por debajo del horizonte con negro absoluto (Regla del horizonte - Sin línea azul)
-    const horizonAltRad = viewAlt * Math.PI / 180;
-    const currentFovRad = viewFov * Math.PI / 180;
-    const fLength = (Math.min(width, height) / 2) / Math.tan(currentFovRad / 2);
-    const horizonY = height / 2 + Math.tan(horizonAltRad) * fLength;
-    if (horizonY < height) {
-      ctx.fillStyle = '#000000';
-      ctx.shadowBlur = 0;
-      ctx.fillRect(0, Math.max(0, horizonY), width, height - Math.max(0, horizonY));
-    }
+    // 6. El bloqueo por debajo del horizonte con negro absoluto ha sido removido a petición del usuario.
+    // Esto permite una vista continua e inmersiva cuando la elevación es > 0.
+
 
     // 7. Sistema de Identificación Diferenciado (Laptop: Hover 1.5s/2.5s | Celular: Centro 2.5s)
     let bestCandidate = null;
