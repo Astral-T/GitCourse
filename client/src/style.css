@@ -2228,3 +2228,189 @@ body.globe-fullscreen-active #globe-3d {
   cursor: not-allowed !important;
 }
 
+/* ==========================================================================
+   ESTILOS DE AUTENTICACIÓN LOCAL Y GESTIÓN DE SESIÓN
+   ========================================================================== */
+
+.header-right-group {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.user-session-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(18, 24, 38, 0.85);
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  padding: 4px 10px;
+  border-radius: 20px;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+.user-session-bar.hidden {
+  display: none !important;
+}
+
+.user-badge {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cyan-neon);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-session {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text-main);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-session.btn-reset-demo {
+  border-color: rgba(255, 170, 0, 0.4);
+  color: #ffaa00;
+}
+
+.btn-session.btn-reset-demo:hover {
+  background: rgba(255, 170, 0, 0.2);
+  box-shadow: 0 0 8px rgba(255, 170, 0, 0.4);
+}
+
+.btn-session.btn-logout {
+  border-color: rgba(255, 51, 102, 0.4);
+  color: #ff3366;
+}
+
+.btn-session.btn-logout:hover {
+  background: rgba(255, 51, 102, 0.2);
+  box-shadow: 0 0 8px rgba(255, 51, 102, 0.4);
+}
+
+/* Modal Overlay de Login */
+.auth-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(5, 7, 12, 0.85);
+  backdrop-filter: blur(12px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.auth-modal-overlay.hidden {
+  display: none !important;
+}
+
+.auth-modal-card {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(13, 19, 33, 0.95);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 0 30px rgba(0, 229, 255, 0.2);
+  position: relative;
+}
+
+.auth-modal-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.auth-icon {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.auth-modal-header h2 {
+  font-size: 22px;
+  color: #ffffff;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.auth-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.auth-form .form-group {
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.auth-form label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.auth-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: #ffffff;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.auth-input:focus {
+  outline: none;
+  border-color: var(--cyan-neon);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+  background: rgba(0, 229, 255, 0.05);
+}
+
+.auth-error {
+  background: rgba(255, 51, 102, 0.15);
+  border: 1px solid #ff3366;
+  color: #ff3366;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.auth-error.hidden {
+  display: none;
+}
+
+.auth-footer-info {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.auth-footer-info code {
+  background: rgba(0, 229, 255, 0.15);
+  color: var(--cyan-neon);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+

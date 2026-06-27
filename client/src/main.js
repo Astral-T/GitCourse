@@ -400,6 +400,7 @@ async function initApp() {
   // Inicializar eventos de otros módulos
   initNewsEvents();
   initTradingEvents();
+  initAuthSession();
 
   // Comprobar conexión y cargar datos de forma asíncrona
   checkBackendConnection().then(isOnline => {
@@ -419,6 +420,109 @@ async function initApp() {
       card.style.setProperty('--mouse-y', `${y}px`);
     });
   });
+}
+
+// 4. GESTIÓN DE AUTENTICACIÓN LOCAL Y SESIÓN (INCÓGNITO FRESCO)
+const AUTH_KEY = 'portal_auth_session';
+
+function initAuthSession() {
+  const loginModal = document.getElementById('login-modal');
+  const sessionBar = document.getElementById('user-session-bar');
+  const userDisplayName = document.getElementById('user-display-name');
+  const loginForm = document.getElementById('form-login');
+  const loginErrorMsg = document.getElementById('login-error-msg');
+  const btnLogout = document.getElementById('btn-logout');
+  const btnResetDemo = document.getElementById('btn-reset-demo');
+
+  function updateSessionUI() {
+    const sessionData = localStorage.getItem(AUTH_KEY);
+    let isAuthenticated = false;
+    let username = 'admin';
+
+    if (sessionData) {
+      try {
+        const parsed = JSON.parse(sessionData);
+        if (parsed && parsed.loggedIn) {
+          isAuthenticated = true;
+          username = parsed.user || 'admin';
+        }
+      } catch (e) {
+        localStorage.removeItem(AUTH_KEY);
+      }
+    }
+
+    if (isAuthenticated) {
+      if (loginModal) loginModal.classList.add('hidden');
+      if (sessionBar) sessionBar.classList.remove('hidden');
+      if (userDisplayName) userDisplayName.textContent = `👤 ${username}`;
+    } else {
+      if (loginModal) loginModal.classList.remove('hidden');
+      if (sessionBar) sessionBar.classList.add('hidden');
+    }
+  }
+
+  if (loginForm) {
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const userVal = document.getElementById('login-username')?.value.trim();
+      const passVal = document.getElementById('login-password')?.value.trim();
+
+      if (userVal === 'admin' && passVal === 'piura2026') {
+        if (loginErrorMsg) loginErrorMsg.classList.add('hidden');
+        localStorage.setItem(AUTH_KEY, JSON.stringify({
+          loggedIn: true,
+          user: userVal,
+          timestamp: Date.now()
+        }));
+        updateSessionUI();
+      } else {
+        if (loginErrorMsg) {
+          loginErrorMsg.textContent = 'Usuario o contraseña incorrectos. (Prueba admin / piura2026)';
+          loginErrorMsg.classList.remove('hidden');
+        }
+      }
+    });
+  }
+
+  if (btnLogout) {
+    btnLogout.addEventListener('click', () => {
+      localStorage.removeItem(AUTH_KEY);
+      updateSessionUI();
+    });
+  }
+
+  if (btnResetDemo) {
+    btnResetDemo.addEventListener('click', async () => {
+      const confirmReset = confirm('¿Estás seguro de que deseas reiniciar los datos de prueba y transacciones simuladas?');
+      if (!confirmReset) return;
+
+      try {
+        btnResetDemo.disabled = true;
+        btnResetDemo.textContent = '⏳ Limpiando...';
+        
+        const res = await fetch(`${BACKEND_URL}/api/dev/reset-demo`, { method: 'POST' });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+          alert('✅ ' + data.message);
+          if (currentTab === 'trading') {
+            loadPortfolio();
+            loadCandlesChart();
+          }
+        } else {
+          alert('❌ Error al reiniciar los datos: ' + (data.error || 'Desconocido'));
+        }
+      } catch (err) {
+        console.error('Error al llamar reset-demo:', err);
+        alert('❌ Error de conexión al servidor al intentar resetear.');
+      } finally {
+        btnResetDemo.disabled = false;
+        btnResetDemo.textContent = '🧹 Reset Demo';
+      }
+    });
+  }
+
+  updateSessionUI();
 }
 
 if (document.readyState === 'loading') {

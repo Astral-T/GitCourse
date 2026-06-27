@@ -57,10 +57,17 @@
       </button>
     </nav>
 
-    <!-- Estado de Conexión del Backend -->
-    <div class="connection-status" id="backend-status">
-      <span class="status-indicator"></span>
-      <span class="status-text">Conectando...</span>
+    <!-- Estado de Conexión del Backend y Sesión -->
+    <div class="header-right-group">
+      <div class="user-session-bar hidden" id="user-session-bar">
+        <span class="user-badge" id="user-display-name">👤 admin</span>
+        <button class="btn-session btn-reset-demo" id="btn-reset-demo" title="Limpiar Datos de Prueba">🧹 Reset Demo</button>
+        <button class="btn-session btn-logout" id="btn-logout" title="Cerrar Sesión">🚪 Salir</button>
+      </div>
+      <div class="connection-status" id="backend-status">
+        <span class="status-indicator"></span>
+        <span class="status-text">Conectando...</span>
+      </div>
     </div>
   </header>
 
@@ -518,6 +525,32 @@
       <p>VISOR ESTELAR INMERSIVO (PIURA)</p>
       <p>AZIMUT: <span id="stellar-hud-azimuth">0</span>° | ELEVACIÓN: <span id="stellar-hud-altitude">0</span>°</p>
       <span class="hud-instruction">Arrastra el mouse para explorar el firmamento en tiempo real</span>
+    </div>
+  </div>
+
+  <!-- Modal de Autenticación de Usuario (Login) -->
+  <div class="auth-modal-overlay" id="login-modal">
+    <div class="auth-modal-card card-style-c cyan">
+      <div class="auth-modal-header">
+        <span class="auth-icon">🔒</span>
+        <h2>Iniciar Sesión en el Portal</h2>
+        <p class="auth-subtitle">Ingresa con tus credenciales locales para acceder al entorno.</p>
+      </div>
+      <form id="form-login" class="auth-form" onsubmit="return false;">
+        <div class="form-group">
+          <label for="login-username">Usuario</label>
+          <input type="text" id="login-username" class="auth-input" value="admin" placeholder="admin" required autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label for="login-password">Contraseña</label>
+          <input type="password" id="login-password" class="auth-input" value="piura2026" placeholder="piura2026" required autocomplete="current-password" />
+        </div>
+        <div id="login-error-msg" class="auth-error hidden"></div>
+        <button type="submit" id="btn-login-submit" class="btn btn-green btn-full-width">Acceder al Portal</button>
+      </form>
+      <div class="auth-footer-info">
+        <p>💡 <strong>Modo Incógnito:</strong> En pestañas privadas/incógnito el <code>localStorage</code> inicia vacío y la app requerirá inicio de sesión fresco.</p>
+      </div>
     </div>
   </div>
 

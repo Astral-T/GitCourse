@@ -5,6 +5,7 @@ import db from './db.js';
 import newsRouter from './routes/news.js';
 import tradingRouter from './routes/trading.js';
 import learningRouter from './routes/learning.js';
+import devRouter from './routes/dev.js';
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ app.get('/api/status', (req, res) => {
 app.use('/api/news', newsRouter);
 app.use('/api/trading', tradingRouter);
 app.use('/api/learning', learningRouter);
+app.use('/api/dev', devRouter);
 
 // Inicializar base de datos y arrancar servidor
 async function startServer() {
