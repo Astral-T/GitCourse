@@ -505,6 +505,7 @@ function initAuthSession() {
         
         if (res.ok && data.success) {
           alert('✅ ' + data.message);
+          refreshLearningData();
           if (currentTab === 'trading') {
             loadPortfolio();
             loadCandlesChart();
