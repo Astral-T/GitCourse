@@ -112,6 +112,12 @@ export async function loadCandlesChart() {
       }
     };
 
+    const currentTimeframe = activeInterval.toUpperCase();
+    if (currentTimeframe === '1D') {
+      options.xaxis.labels.datetimeUTC = true;
+      options.xaxis.tickPlacement = 'on';
+    }
+
     chartInstance = new ApexCharts(chartContainer, options);
     await chartInstance.render();
 
