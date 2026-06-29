@@ -1142,11 +1142,17 @@ body {
   color: var(--text-primary);
 }
 
+.chart-container-wrapper, #financial-candles-chart {
+  touch-action: none !important;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .chart-container-wrapper {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.02);
-  height: 480px;
+  height: 400px;
   position: relative;
   z-index: 2;
   display: flex;
@@ -2549,7 +2555,38 @@ body.globe-fullscreen-active #globe-3d {
     padding-bottom: 6px;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Ajuste responsivo de altura para gráfico de trading */
+  .chart-container-wrapper {
+    height: 320px;
+  }
 }
+
+/* 1. COMPORTAMIENTO POR DEFECTO (Escritorio / Laptop): Interactividad completa para ratón y rueda */
+#financial-candles-chart, .apexcharts-canvas, .apexcharts-svg {
+  pointer-events: auto !important;
+}
+
+/* 2. COMPORTAMIENTO PARA MÓVILES (Pantallas menores a 768px o dispositivos táctiles) */
+@media (max-width: 767px) {
+  /* Activamos el truco fantasma para el dedo en el celular */
+  #financial-candles-chart, .apexcharts-canvas, .apexcharts-svg {
+    pointer-events: none !important;
+  }
+  
+  /* Ocultamos la barra lagueada nativa solo en el celular */
+  .apexcharts-scroller, .apexcharts-scrollbar {
+    display: none !important;
+  }
+  
+  .chart-container-wrapper {
+    width: 100% !important;
+    overflow-x: scroll !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
+  }
+}
+
 
 
 

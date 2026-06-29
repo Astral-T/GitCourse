@@ -41,36 +41,39 @@ export async function loadCandlesChart() {
       chartInstance.destroy();
     }
 
+    const isDesktop = window.innerWidth >= 768;
+
     const options = {
       series: [{
         data: candlesData
       }],
       chart: {
         type: 'candlestick',
-        height: 440,
+        height: '100%',
+        width: isDesktop ? '100%' : candlesData.length * 15,
         background: 'transparent',
-        toolbar: {
-          show: true,
-          tools: {
-            download: false,
-            selection: true,
-            zoom: true,
-            zoomin: true,
-            zoomout: true,
-            pan: true,
-            reset: true
-          }
+        zoom: {
+          enabled: isDesktop
         },
-        foreColor: '#64748b'
+        selection: {
+          enabled: false
+        },
+        toolbar: {
+          show: isDesktop,
+          autoSelected: 'zoom'
+        },
+        animations: { enabled: false },
+        foreColor: '#64748b',
+        events: {
+          beforeMounted: (chartContext, config) => {
+            console.log("Chart listo para scroll");
+          }
+        }
       },
       grid: {
         borderColor: 'rgba(255, 255, 255, 0.03)',
-        xaxis: {
-          lines: { show: true }
-        },
-        yaxis: {
-          lines: { show: true }
-        }
+        xaxis: { lines: { show: true } },
+        yaxis: { lines: { show: true } }
       },
       xaxis: {
         type: 'datetime',
@@ -83,11 +86,19 @@ export async function loadCandlesChart() {
         }
       },
       yaxis: {
+        forceNiceScale: true,
         tooltip: {
-          enabled: true
+          enabled: false
         },
         labels: {
           formatter: function (val) {
+            if (val === null || val === undefined || isNaN(val)) return '';
+            const absVal = Math.abs(val);
+            if (absVal >= 1e12) return '$' + (val / 1e12).toFixed(1).replace(/\.0$/, '') + 'T';
+            if (absVal >= 1e9) return '$' + (val / 1e9).toFixed(1).replace(/\.0$/, '') + 'B';
+            if (absVal >= 1e6) return '$' + (val / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+            if (absVal >= 1e3) return '$' + (val / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+            if (absVal < 0.01 && absVal > 0) return '$' + val.toFixed(6);
             return '$' + val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
           },
           style: {
@@ -98,6 +109,7 @@ export async function loadCandlesChart() {
       },
       plotOptions: {
         candlestick: {
+          columnWidth: '65%',
           colors: {
             upward: '#39ff14',   // Alza: Verde neón
             downward: '#ff3366'  // Baja: Rojo coral
@@ -108,7 +120,7 @@ export async function loadCandlesChart() {
         }
       },
       tooltip: {
-        theme: 'dark'
+        enabled: false
       }
     };
 
@@ -120,6 +132,14 @@ export async function loadCandlesChart() {
 
     chartInstance = new ApexCharts(chartContainer, options);
     await chartInstance.render();
+
+    // Desplazar el contenedor con scroll nativo hacia el extremo derecho solo en móviles
+    if (!isDesktop && candlesData.length > 25) {
+      const wrapper = chartContainer.closest('.chart-container-wrapper') || chartContainer.parentElement;
+      if (wrapper) {
+        wrapper.scrollLeft = wrapper.scrollWidth;
+      }
+    }
 
     // Actualizar precio de cabecera con el último precio de cierre
     if (candlesData.length > 0) {

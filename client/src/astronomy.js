@@ -557,6 +557,10 @@ export function calculateCelestialPositions(date = new Date()) {
 
 // 3. RENDERIZADO DEL DOMO CELESTE CANVAS
 export function drawSkyDome(canvas, userAz, userAlt, date = new Date()) {
+  if (!canvas) {
+    console.log("===[AVISO] Canvas no encontrado en esta vista, saltando renderizado===");
+    return { targetedAstro: null, recommendations: [] };
+  }
   const ctx = canvas.getContext('2d');
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
@@ -853,6 +857,10 @@ export function updateAstronomyPanel(targetedAstro, moonPhaseData, date = new Da
 
 // 5. EVENTOS DRAG (ARRASTRE DE CÁMARA) PARA LAPTOP Y MÓVIL (CON PINCH-TO-ZOOM)
 export function initSkyDragControls(canvas, onUpdateView) {
+  if (!canvas) {
+    console.log("===[AVISO] Canvas no encontrado en esta vista, saltando listeners===");
+    return;
+  }
   let isDragging = false;
   let startX, startY;
   let initialTouchDist = 0;
@@ -902,6 +910,7 @@ export function initSkyDragControls(canvas, onUpdateView) {
 
   // Soporte táctil responsivo para dispositivos móviles con prevención de scroll
   canvas.addEventListener('touchstart', (e) => {
+    console.log("Toques detectados (Dome):", e.touches.length);
     if (e.touches.length === 2) {
       initialTouchDist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
@@ -913,6 +922,7 @@ export function initSkyDragControls(canvas, onUpdateView) {
   }, { passive: false });
 
   canvas.addEventListener('touchmove', (e) => {
+    console.log("Toques detectados (Dome move):", e.touches.length);
     if (e.cancelable) e.preventDefault(); // Evitar scroll de la página al manipular el canvas
     if (e.touches.length === 2 && initialTouchDist > 0) {
       const currentDist = Math.hypot(
@@ -1294,6 +1304,15 @@ function getSkyColorAtAlt(alt, dayFactor) {
 }
 
 export function initStellarViewer(canvas, onUpdateCoords) {
+  if (!canvas) {
+    console.log("===[AVISO] Canvas no encontrado en esta vista, saltando listeners===");
+    return {
+      start: () => {},
+      stop: () => {},
+      setDateTime: () => {},
+      getCoordinates: () => ({ az: 0, alt: 0 })
+    };
+  }
   const ctx = canvas.getContext('2d');
   let animationFrameId = null;
   let isDragging = false;
@@ -1310,8 +1329,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
 
   // Variables de Zoom
   let viewFov = 75; // FOV por defecto en grados
-  let initialTouchDist = 0;
-  let initialFov = 75;
+  let totalTouchDistance = 0;
 
   // Variables de Identificación por Enfoque
   let focusedObject = null;
@@ -1547,22 +1565,24 @@ export function initStellarViewer(canvas, onUpdateCoords) {
           const coords = projectSpherical(starAz, starAlt, viewAz, viewAlt, viewFov, width, height);
           if (!coords) return;
           
-          const renderSize = 2.5 * Math.sqrt(zoomFactor);
-          const glowColor = star.glow || (star.name === 'Betelgeuse' ? '#ff7850' : '#b4dcff');
-          const isSpikeStar = ['Betelgeuse', 'Rigel', 'Acrux', 'Mimosa', 'Gacrux'].includes(star.name);
-          const starOpacity = Math.max(0.8, Math.min(1.0, 1.0 * (1 - dayFactor)));
-          const type = isSpikeStar ? 'famous_star' : 'star';
-          const starMag = parseFloat(star.magnitude !== undefined ? star.magnitude : 2.0);
-          drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor, starOpacity, type, starMag);
+          if (coords.x >= 0 && coords.x <= width && coords.y >= 0 && coords.y <= height) {
+            const renderSize = 2.5 * Math.sqrt(zoomFactor);
+            const glowColor = star.glow || (star.name === 'Betelgeuse' ? '#ff7850' : '#b4dcff');
+            const isSpikeStar = ['Betelgeuse', 'Rigel', 'Acrux', 'Mimosa', 'Gacrux'].includes(star.name);
+            const starOpacity = Math.max(0.8, Math.min(1.0, 1.0 * (1 - dayFactor)));
+            const type = isSpikeStar ? 'famous_star' : 'star';
+            const starMag = parseFloat(star.magnitude !== undefined ? star.magnitude : 2.0);
+            drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor, starOpacity, type, starMag);
 
-          // Registrar estrella
-          focusCandidates.push({
-            name: `${star.name} (${constel.name})`,
-            type: 'constellation_star',
-            x: coords.x,
-            y: coords.y,
-            size: renderSize
-          });
+            // Registrar estrella
+            focusCandidates.push({
+              name: `${star.name} (${constel.name})`,
+              type: 'constellation_star',
+              x: coords.x,
+              y: coords.y,
+              size: renderSize
+            });
+          }
         });
       });
     }
@@ -1659,32 +1679,58 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     // Esto permite una vista continua e inmersiva cuando la elevación es > 0.
 
 
-    // 7. Sistema de Identificación Diferenciado (Laptop: Hover 1.5s/2.5s | Celular: Centro 2.5s)
+    // 7. Sistema de Identificación Diferenciado y Filtro de Nombres por Zoom
+    const visibleStarsOnScreen = focusCandidates.filter(cand => 
+      cand.x >= 0 && cand.x <= width && cand.y >= 0 && cand.y <= height && cand.type !== 'constellation'
+    );
+
+    // Mostrar nombres únicamente si el zoom muestra como máximo 5 o 6 estrellas simultáneamente en pantalla
+    const showStarNames = visibleStarsOnScreen.length > 0 && visibleStarsOnScreen.length <= 6;
+
+    if (showStarNames && dayFactor < 0.95) {
+      ctx.save();
+      ctx.font = '500 12px "Plus Jakarta Sans", sans-serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.shadowColor = 'rgba(0, 229, 255, 0.6)';
+      ctx.shadowBlur = 4;
+      ctx.textAlign = 'left';
+      visibleStarsOnScreen.forEach(obj => {
+        let displayName = obj.name;
+        if (obj.type === 'constellation_star') {
+          displayName = obj.name.split(' (')[0];
+        }
+        ctx.fillText(displayName.toUpperCase(), obj.x + obj.size + 7, obj.y + 4);
+      });
+      ctx.restore();
+    }
+
     let bestCandidate = null;
     let focusType = null; // 'hover' o 'center'
     let minDistance = Infinity;
 
-    focusCandidates.forEach(cand => {
-      const distCenter = Math.hypot(cand.x - width / 2, cand.y - height / 2);
-      const distMouse = Math.hypot(cand.x - mouseX, cand.y - mouseY);
+    if (showStarNames) {
+      focusCandidates.forEach(cand => {
+        const distCenter = Math.hypot(cand.x - width / 2, cand.y - height / 2);
+        const distMouse = Math.hypot(cand.x - mouseX, cand.y - mouseY);
 
-      if (!isUsingTouch) {
-        // Laptop hover mode
-        const threshold = cand.type === 'constellation' ? 35 : 20;
-        if (distMouse < threshold && distMouse < minDistance) {
-          minDistance = distMouse;
-          bestCandidate = cand;
-          focusType = 'hover';
+        if (!isUsingTouch) {
+          // Laptop hover mode
+          const threshold = cand.type === 'constellation' ? 35 : 20;
+          if (distMouse < threshold && distMouse < minDistance) {
+            minDistance = distMouse;
+            bestCandidate = cand;
+            focusType = 'hover';
+          }
+        } else {
+          // Mobile center mode (mirar algo)
+          if (distCenter < 25 && distCenter < minDistance) {
+            minDistance = distCenter;
+            bestCandidate = cand;
+            focusType = 'center';
+          }
         }
-      } else {
-        // Mobile center mode (mirar algo)
-        if (distCenter < 25 && distCenter < minDistance) {
-          minDistance = distCenter;
-          bestCandidate = cand;
-          focusType = 'center';
-        }
-      }
-    });
+      });
+    }
 
     if (bestCandidate) {
       if (focusedObject && focusedObject.name === bestCandidate.name && currentFocusType === focusType) {
@@ -1811,7 +1857,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
 
   // Capturar coordenadas del mouse para Laptop Hover
   canvas.addEventListener('mousemove', e => {
-    if (isUsingTouch) return;
+    if (totalTouchDistance > 0 || isUsingTouch || e.touches) return; // DETIENE EL MOUSE SI HAY TOQUES MÓVILES ACTIVOS
     const rect = canvas.getBoundingClientRect();
     mouseX = e.clientX - rect.left;
     mouseY = e.clientY - rect.top;
@@ -1821,6 +1867,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
   });
 
   canvas.addEventListener('mousedown', e => {
+    if (totalTouchDistance > 0 || (e.touches && e.touches.length > 0)) return;
     isUsingTouch = false;
     handleStart(e.clientX, e.clientY);
   });
@@ -1828,40 +1875,49 @@ export function initStellarViewer(canvas, onUpdateCoords) {
   window.addEventListener('mouseup', handleEnd);
   canvas.addEventListener('wheel', handleWheel, { passive: false });
 
-  // Soporte táctil móvil (con Pinch-to-Zoom y desactivación de Hover)
+  // Soporte táctil móvil (con Pinch-to-Zoom Híbrido y multitáctil geométrico acumulativo)
   canvas.addEventListener('touchstart', e => {
+    console.log("Toques detectados:", e.touches.length);
     isUsingTouch = true;
     mouseX = -1000;
     mouseY = -1000;
     
     if (e.touches.length === 2) {
-      initialTouchDist = Math.hypot(
+      isDragging = false; // Bloquea el paneo de un solo dedo instantáneamente
+      totalTouchDistance = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
-      initialFov = viewFov;
     } else if (e.touches.length === 1) {
       handleStart(e.touches[0].clientX, e.touches[0].clientY);
     }
   }, { passive: false });
 
   canvas.addEventListener('touchmove', e => {
-    if (e.cancelable) e.preventDefault();
-    if (e.touches.length === 2 && initialTouchDist > 0) {
+    console.log("Toques detectados:", e.touches.length);
+    if (e.touches.length === 2) {
+      if (e.cancelable) e.preventDefault(); // Evita que el navegador mueva la pantalla
+      isDragging = false;
       const currentDist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
-      const factor = initialTouchDist / currentDist;
-      viewFov = Math.max(5, Math.min(120, initialFov * factor));
-    } else if (e.touches.length === 1) {
+      
+      if (totalTouchDistance > 0) {
+        const delta = currentDist - totalTouchDistance;
+        viewFov -= delta * 0.1; // Modifica el zoom acumulativo directamente
+        viewFov = Math.max(10, Math.min(80, viewFov)); // Límites de seguridad de la cámara
+      }
+      totalTouchDistance = currentDist;
+    } else if (e.touches.length === 1 && isDragging) {
+      if (e.cancelable) e.preventDefault();
       handleMove(e.touches[0].clientX, e.touches[0].clientY);
     }
   }, { passive: false });
 
   canvas.addEventListener('touchend', e => {
     if (e.touches.length < 2) {
-      initialTouchDist = 0;
+      totalTouchDistance = 0;
     }
     handleEnd();
   });
@@ -1892,3 +1948,14 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     getCoordinates: () => ({ az: viewAz, alt: viewAlt })
   };
 }
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('skyCanvas') || document.getElementById('sky-dome') || document.querySelector('canvas');
+    if (!canvas) {
+      console.log("===[AVISO] Canvas no encontrado en esta vista, saltando listeners===");
+      return; 
+    }
+  });
+}
+
