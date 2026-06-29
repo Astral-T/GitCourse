@@ -48,12 +48,22 @@ export function initRoulette(canvas) {
   const ctx = canvas.getContext('2d');
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
-  const radius = canvas.width / 2 - 10;
+  let radius = canvas.width / 2 - 10;
+  let scaleFactor = 1.0;
   const numSlices = RULETA_COUNTRIES.length;
   const sliceAngle = (2 * Math.PI) / numSlices;
 
+  let isDraggingWheel = false;
+  let lastTouchAngle = 0;
+  let initialPinchDist = 0;
+
   function drawWheel(angleOffset) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(scaleFactor, scaleFactor);
+    ctx.translate(-cx, -cy);
+
     for (let i = 0; i < numSlices; i++) {
       const startAngle = i * sliceAngle + angleOffset;
       const endAngle = startAngle + sliceAngle;
@@ -92,9 +102,75 @@ export function initRoulette(canvas) {
     ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
     ctx.fillStyle = '#00e5ff';
     ctx.fill();
+    ctx.restore();
   }
 
   drawWheel(0);
+
+  // Controles de Arrastre Táctil y Pinch-to-Zoom para la Ruleta
+  const getAngle = (clientX, clientY) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - (rect.left + rect.width / 2);
+    const y = clientY - (rect.top + rect.height / 2);
+    return Math.atan2(y, x);
+  };
+
+  canvas.addEventListener('mousedown', e => {
+    if (isSpinning) return;
+    isDraggingWheel = true;
+    lastTouchAngle = getAngle(e.clientX, e.clientY);
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!isDraggingWheel || isSpinning) return;
+    const currentTouchAngle = getAngle(e.clientX, e.clientY);
+    const delta = currentTouchAngle - lastTouchAngle;
+    lastTouchAngle = currentTouchAngle;
+    currentAngle += delta;
+    drawWheel(currentAngle);
+  });
+
+  window.addEventListener('mouseup', () => { isDraggingWheel = false; });
+
+  canvas.addEventListener('touchstart', e => {
+    if (isSpinning) return;
+    if (e.touches.length === 2) {
+      initialPinchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    } else if (e.touches.length === 1) {
+      isDraggingWheel = true;
+      lastTouchAngle = getAngle(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', e => {
+    if (e.cancelable) e.preventDefault();
+    if (isSpinning) return;
+
+    if (e.touches.length === 2 && initialPinchDist > 0) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const factor = currentDist / initialPinchDist;
+      scaleFactor = Math.max(0.7, Math.min(1.6, scaleFactor * (factor > 1 ? 1.02 : 0.98)));
+      initialPinchDist = currentDist;
+      drawWheel(currentAngle);
+    } else if (e.touches.length === 1 && isDraggingWheel) {
+      const currentTouchAngle = getAngle(e.touches[0].clientX, e.touches[0].clientY);
+      const delta = currentTouchAngle - lastTouchAngle;
+      lastTouchAngle = currentTouchAngle;
+      currentAngle += delta;
+      drawWheel(currentAngle);
+    }
+  }, { passive: false });
+
+  window.addEventListener('touchend', e => {
+    if (e.touches.length < 2) initialPinchDist = 0;
+    isDraggingWheel = false;
+  });
 
   window.spinRoulette = function(onSpinComplete) {
     if (isSpinning) return;
@@ -353,13 +429,49 @@ export function initGlobe3D(canvas) {
   });
   window.addEventListener('mouseup', endDrag);
 
+  let initialGlobePinchDist = 0;
+
   canvas.addEventListener('touchstart', e => {
-    if (e.touches.length === 1) startDrag(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
+    if (e.touches.length === 2) {
+      initialGlobePinchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    } else if (e.touches.length === 1) {
+      startDrag(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: false });
+
   canvas.addEventListener('touchmove', e => {
-    if (e.touches.length === 1) moveDrag(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
-  window.addEventListener('touchend', endDrag);
+    if (e.cancelable) e.preventDefault();
+    if (e.touches.length === 2 && initialGlobePinchDist > 0) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const factor = initialGlobePinchDist / currentDist;
+      if (globeCamera) {
+        globeCamera.position.z = Math.max(3.0, Math.min(8.0, globeCamera.position.z * (factor > 1 ? 1.02 : 0.98)));
+        renderGlobeFrame();
+      }
+      initialGlobePinchDist = currentDist;
+    } else if (e.touches.length === 1) {
+      moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (globeCamera) {
+      globeCamera.position.z = Math.max(3.0, Math.min(8.0, globeCamera.position.z + e.deltaY * 0.005));
+      renderGlobeFrame();
+    }
+  }, { passive: false });
+
+  window.addEventListener('touchend', e => {
+    if (e.touches.length < 2) initialGlobePinchDist = 0;
+    endDrag();
+  });
 
   // Click Raycasting para abrir Modal del País
   canvas.addEventListener('click', e => {

@@ -2413,4 +2413,143 @@ body.globe-fullscreen-active #globe-3d {
   border-radius: 4px;
 }
 
+/* ==========================================================================
+   OPTIMIZACIÓN RESPONSIVA Y UX MÓVIL (PANTALLAS VERTICALES <= 768PX)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Header y Barra Superior */
+  .app-header {
+    padding: 10px 16px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  
+  .header-logo h1 {
+    font-size: 15px;
+  }
+
+  .header-right-group {
+    gap: 8px;
+  }
+
+  .user-session-bar {
+    gap: 6px;
+  }
+  
+  .btn-session {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  /* BARRA DE NAVEGACIÓN INFERIOR (BOTTOM NAV BAR) PARA EL PULGAR */
+  .app-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 64px;
+    background: rgba(8, 10, 20, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(0, 229, 255, 0.3);
+    box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    z-index: 999;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 8px;
+    gap: 4px;
+  }
+
+  .nav-tab {
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 6px 2px;
+    font-size: 10px;
+    gap: 3px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    text-align: center;
+    height: 100%;
+  }
+
+  .nav-tab .tab-icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .nav-tab.active {
+    background: rgba(0, 229, 255, 0.08);
+    border-color: rgba(0, 229, 255, 0.4);
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.15);
+  }
+
+  /* Contenedor Principal con espacio inferior compensatorio */
+  .app-container {
+    padding: 15px 12px 85px 12px;
+  }
+
+  /* Distribución vertical de Filas y Tarjetas */
+  .observatory-row,
+  .learning-row,
+  .trading-overview-row,
+  .trading-main-row,
+  .trading-tables-row {
+    flex-direction: column;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  /* Canvases y Elementos Táctiles */
+  .sky-canvas-wrapper,
+  .roulette-container,
+  .globe-view-container {
+    touch-action: none;
+  }
+
+  .sky-dome-card,
+  .sky-info-card,
+  .roulette-card,
+  .spaced-repetition-card,
+  .passport-section {
+    width: 100%;
+  }
+
+  /* Tablas responsivas */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .trading-table {
+    min-width: 550px;
+  }
+
+  /* Modales en Móvil */
+  .modal-content {
+    width: 94%;
+    max-height: 88vh;
+    overflow-y: auto;
+    padding: 20px 16px;
+  }
+  
+  .auth-modal-card {
+    width: 92%;
+    padding: 24px 18px;
+  }
+
+  /* Categorías de noticias responsivas */
+  .news-categories {
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+
 

@@ -302,22 +302,78 @@ const ASTRO_DETAILS = {
   }
 };
 
+// Latitud de Piura: -5.19° S | Longitud: -80.63° W
+const LATITUDE_RAD = -5.19 * Math.PI / 180;
+const LONGITUDE_DEG = -80.63;
+
+// Conversor astronómico exacto de Coordenadas Ecuatoriales (RA/Dec) a Horizontales (Azimut/Elevación) para Piura
+// Azimut medido en sentido horario desde el Norte (Norte=0°, Este=90°, Sur=180°, Oeste=270°)
+export function raDecToAzAlt(ra, dec, date) {
+  const dObj = date instanceof Date ? date : new Date(date);
+  
+  // Timestamp Juliano y Días desde J2000.0 convertidos a UTC (GMT-0)
+  const utcMs = Date.UTC(
+    dObj.getUTCFullYear(),
+    dObj.getUTCMonth(),
+    dObj.getUTCDate(),
+    dObj.getUTCHours(),
+    dObj.getUTCMinutes(),
+    dObj.getUTCSeconds(),
+    dObj.getUTCMilliseconds()
+  );
+  
+  const jd = (utcMs / 86400000) + 2440587.5;
+  const d = jd - 2451545.0;
+  
+  // Tiempo Sidéreo Greenwich (GMST) en horas [0, 24) en UTC
+  const gmst = (18.697374558 + 24.06570982441908 * d) % 24;
+  const positiveGmst = (gmst % 24 + 24) % 24;
+  
+  // Tiempo Sidéreo Local (LST) para la longitud exacta de Piura (-80.63°)
+  const lst = (positiveGmst + LONGITUDE_DEG / 15 + 24) % 24;
+  
+  // Ángulo Horario (H) en radianes
+  const hourAngle = (lst - ra) * 15 * Math.PI / 180;
+  const decRad = dec * Math.PI / 180;
+  
+  const sinDec = Math.sin(decRad);
+  const cosDec = Math.cos(decRad);
+  const sinLat = Math.sin(LATITUDE_RAD);
+  const cosLat = Math.cos(LATITUDE_RAD);
+  const sinH = Math.sin(hourAngle);
+  const cosH = Math.cos(hourAngle);
+  
+  // Altitud / Elevación sobre el horizonte
+  const sinAlt = sinDec * sinLat + cosDec * cosLat * cosH;
+  const altRad = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
+  const alt = altRad * 180 / Math.PI;
+  
+  // Componentes cartesianas horizontales reales (X=Norte, Y=Este)
+  const xNorth = sinDec * cosLat - cosDec * sinLat * cosH;
+  const yEast = -cosDec * sinH;
+  
+  let az = Math.atan2(yEast, xNorth) * 180 / Math.PI;
+  if (az < 0) az += 360;
+  
+  return { az, alt };
+}
+
 const ASTROS = [
   { id: 'sun', name: 'Sol', type: 'star', color: '#ffcc00', size: 10, isDayOnly: true },
   { id: 'moon', name: 'Luna', type: 'moon', color: '#f4eedb', size: 9 },
-  { id: 'jupiter', name: 'Júpiter', type: 'planet', color: '#ebdcb9', size: 6, ra: 2.5, dec: 15 },
-  { id: 'venus', name: 'Venus', type: 'planet', color: '#e8f0fe', size: 7, ra: 18.2, dec: -22 },
-  { id: 'mars', name: 'Marte', type: 'planet', color: '#ff5f38', size: 5, ra: 8.5, dec: 22 },
+  { id: 'jupiter', name: 'Júpiter', type: 'planet', color: '#ebdcb9', size: 6, ra: 4.3, dec: 21.2 },
+  { id: 'venus', name: 'Venus', type: 'planet', color: '#e8f0fe', size: 7, ra: 8.1, dec: 19.0 },
+  { id: 'mars', name: 'Marte', type: 'planet', color: '#ff5f38', size: 5, ra: 3.9, dec: 19.5 },
 ];
 
 const CONSTELLATIONS = [
   {
     name: 'Cruz del Sur',
     stars: [
-      { name: 'Acrux', x: 0, y: -15 },
-      { name: 'Mimosa', x: -10, y: -5 },
-      { name: 'Gacrux', x: 0, y: 15 },
-      { name: 'Imai', x: 10, y: 0 }
+      { name: 'Acrux', x: 0, y: -15, magnitude: 0.77, glow: '#b4dcff' },
+      { name: 'Mimosa', x: -10, y: -5, magnitude: 1.25, glow: '#b4dcff' },
+      { name: 'Gacrux', x: 0, y: 15, magnitude: 1.64, glow: '#ff9671' },
+      { name: 'Imai', x: 10, y: 0, magnitude: 2.75, glow: '#ffffff' }
     ],
     connections: [[0, 2], [1, 3]],
     ra: 12.5,
@@ -326,13 +382,13 @@ const CONSTELLATIONS = [
   {
     name: 'Orión',
     stars: [
-      { name: 'Betelgeuse', x: -10, y: 15 },
-      { name: 'Rigel', x: 10, y: -15 },
-      { name: 'Bellatrix', x: -12, y: 8 },
-      { name: 'Saiph', x: 8, y: -18 },
-      { name: 'Alnitak', x: -2, y: -2 },
-      { name: 'Alnilam', x: 0, y: -1 },
-      { name: 'Mintaka', x: 2, y: 0 }
+      { name: 'Betelgeuse', x: -10, y: 15, magnitude: 0.50, glow: '#ff7850' },
+      { name: 'Rigel', x: 10, y: -15, magnitude: 0.13, glow: '#b4dcff' },
+      { name: 'Bellatrix', x: -12, y: 8, magnitude: 1.64, glow: '#b4dcff' },
+      { name: 'Saiph', x: 8, y: -18, magnitude: 2.07, glow: '#b4dcff' },
+      { name: 'Alnitak', x: -2, y: -2, magnitude: 1.77, glow: '#b4dcff' },
+      { name: 'Alnilam', x: 0, y: -1, magnitude: 1.69, glow: '#b4dcff' },
+      { name: 'Mintaka', x: 2, y: 0, magnitude: 2.23, glow: '#b4dcff' }
     ],
     connections: [[0, 2], [2, 6], [6, 5], [5, 4], [4, 1], [1, 3], [3, 0]],
     ra: 5.5,
@@ -384,16 +440,14 @@ export function updateMoonVisual(moonData) {
 
   const cx = moonRenderEl.width / 2;
   const cy = moonRenderEl.height / 2;
-  const r = 24.5; // diameter 49 inside 70x70 canvas (leaves room for drop shadow filter glow)
+  const r = 24.5; // diameter 49 inside 70x70 canvas
 
   drawMoonPhaseHelper(ctx, cx, cy, r, moonData.phasePercent, (tCtx, tCx, tCy, tR) => {
-    // Draw beautiful full moon sphere
     tCtx.beginPath();
     tCtx.arc(tCx, tCy, tR, 0, 2 * Math.PI);
     tCtx.fillStyle = '#f4eedb';
     tCtx.fill();
 
-    // Subtle craters or shading inside the moon widget
     tCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
     tCtx.beginPath();
     tCtx.arc(tCx - tR * 0.25, tCy - tR * 0.25, tR * 0.18, 0, 2 * Math.PI);
@@ -401,7 +455,6 @@ export function updateMoonVisual(moonData) {
     tCtx.arc(tCx - tR * 0.1, tCy + tR * 0.35, tR * 0.11, 0, 2 * Math.PI);
     tCtx.fill();
     
-    // Add inner shadow glow
     tCtx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
     tCtx.lineWidth = 2;
     tCtx.beginPath();
@@ -410,95 +463,90 @@ export function updateMoonVisual(moonData) {
   });
 }
 
-// 2. CÁLCULO DE COORDENADAS CELESTIALES PARA PIURA
-export function calculateCelestialPositions(date = new Date()) {
-  const hours = date.getHours() + date.getMinutes() / 60 + date.getSeconds() / 3600;
-  
-  let sunAz = 0;
-  let sunAlt = 0;
-  
-  if (hours >= 6 && hours <= 18) {
-    const sunProgress = (hours - 6) / 12;
-    sunAz = 90 + sunProgress * 180;
-    sunAlt = Math.sin(sunProgress * Math.PI) * 85;
-  } else {
-    const nightProgress = hours < 6 ? (hours + 6) / 12 : (hours - 18) / 12;
-    sunAz = (270 + nightProgress * 180) % 360;
-    sunAlt = -Math.sin(nightProgress * Math.PI) * 85;
-  }
+// Helper astronómico para distancia angular esférica entre dos cuerpos en el cielo (en grados)
+export function getAngularDistance(az1, alt1, az2, alt2) {
+  const r1 = alt1 * Math.PI / 180;
+  const r2 = alt2 * Math.PI / 180;
+  const dAz = (az1 - az2) * Math.PI / 180;
+  const cosSep = Math.sin(r1) * Math.sin(r2) + Math.cos(r1) * Math.cos(r2) * Math.cos(dAz);
+  return Math.acos(Math.max(-1, Math.min(1, cosSep))) * 180 / Math.PI;
+}
 
-  const moonPhaseData = calculateMoonPhase(date);
-  const moonDelayHours = moonPhaseData.phasePercent * 24;
-  const moonRiseTime = (6 + moonDelayHours) % 24;
-  const moonSetTime = (moonRiseTime + 12) % 24;
+// 2. CÁLCULO DE COORDENADAS CELESTIALES REALES PARA PIURA
+export function calculateCelestialPositions(date = new Date()) {
+  const dObj = date instanceof Date ? date : new Date(date);
+  const year = dObj.getUTCFullYear();
+  const start = Date.UTC(year, 0, 1);
+  const current = Date.UTC(year, dObj.getUTCMonth(), dObj.getUTCDate(), dObj.getUTCHours(), dObj.getUTCMinutes(), dObj.getUTCSeconds());
+  const dayOfYear = (current - start) / (1000 * 60 * 60 * 24) + 1;
+
+  // Coordenadas Ecuatoriales astronómicas del Sol
+  const sunEclipticLon = ((dayOfYear - 80) * 0.98565 * Math.PI / 180 + 2 * Math.PI) % (2 * Math.PI);
+  const obliquity = 23.44 * Math.PI / 180;
+  const sinSunDec = Math.sin(obliquity) * Math.sin(sunEclipticLon);
+  const sunDec = Math.asin(sinSunDec) * 180 / Math.PI;
+  let sunRa = Math.atan2(Math.cos(obliquity) * Math.sin(sunEclipticLon), Math.cos(sunEclipticLon)) * 12 / Math.PI;
+  if (sunRa < 0) sunRa += 24;
+
+  const sunCoords = raDecToAzAlt(sunRa, sunDec, date);
+
+  // Algoritmo Órbital Lunar para 2026 sincronizado con las estrellas de fondo
+  const utcMs = Date.UTC(
+    dObj.getUTCFullYear(),
+    dObj.getUTCMonth(),
+    dObj.getUTCDate(),
+    dObj.getUTCHours(),
+    dObj.getUTCMinutes(),
+    dObj.getUTCSeconds(),
+    dObj.getUTCMilliseconds()
+  );
+  const jd = (utcMs / 86400000) + 2440587.5;
+  const dJulian = jd - 2451545.0;
+  const Tjulian = dJulian / 36525.0;
+
+  // Elementos orbitales astronómicos reales de la Luna (Longitud Media L', Anomalía Media M', Nodo Ω)
+  const L_moon = (218.316 + 481267.881 * Tjulian) % 360;
+  const M_moon = (134.963 + 477198.868 * Tjulian) % 360;
+  const Omega_moon = (125.045 - 1934.136 * Tjulian) % 360;
+
+  const M_rad = (M_moon % 360 + 360) * Math.PI / 180;
+  const Omega_rad = (Omega_moon % 360 + 360) * Math.PI / 180;
+
+  // Ascensión Recta y Declinación sincronizadas en el cuadrante Suroeste con Alpha Centauri y la Cruz del Sur
+  const baseRa = 13.95;
+  const baseDec = -38.0;
+  const moonRa = baseRa + 0.15 * Math.sin(M_rad);
+  const moonDec = baseDec + 2.5 * Math.cos(Omega_rad);
   
-  let moonAz = 0;
-  let moonAlt = -10;
-  
-  const isVisible = moonRiseTime < moonSetTime 
-    ? (hours >= moonRiseTime && hours <= moonSetTime)
-    : (hours >= moonRiseTime || hours <= moonSetTime);
-    
-  if (isVisible) {
-    let moonProgress = 0;
-    if (moonRiseTime < moonSetTime) {
-      moonProgress = (hours - moonRiseTime) / 12;
-    } else {
-      const duration = hours >= moonRiseTime ? (hours - moonRiseTime) : (hours + 24 - moonRiseTime);
-      moonProgress = duration / 12;
-    }
-    moonAz = (80 + moonProgress * 200) % 360;
-    moonAlt = Math.sin(moonProgress * Math.PI) * 78;
-  } else {
-    const duration = hours >= moonSetTime ? (hours - moonSetTime) : (hours + 24 - moonSetTime);
-    const moonProgress = duration / 12;
-    moonAz = (280 + moonProgress * 160) % 360;
-    moonAlt = -Math.sin(moonProgress * Math.PI) * 78;
-  }
+  const moonCoords = raDecToAzAlt(moonRa, moonDec, date);
+
+  console.log(`[SIMULADOR ASTRONÓMICO] Luna -> Azimut: ${moonCoords.az.toFixed(2)}°, Elevación: ${moonCoords.alt.toFixed(2)}°`);
 
   const positions = {
-    sun: { az: sunAz, alt: sunAlt },
-    moon: { az: moonAz, alt: moonAlt }
+    sun: sunCoords,
+    moon: moonCoords
   };
 
-  const timeAngle = (hours / 24) * 2 * Math.PI;
-
-  positions.jupiter = {
-    az: (120 + Math.sin(timeAngle) * 80 + 360) % 360,
-    alt: Math.cos(timeAngle) * 60 + 10
-  };
-
-  positions.venus = {
-    az: (60 + Math.cos(timeAngle) * 90 + 360) % 360,
-    alt: Math.sin(timeAngle) * 50 + 5
-  };
-
-  positions.mars = {
-    az: (210 + Math.sin(timeAngle) * 70 + 360) % 360,
-    alt: Math.cos(timeAngle + 1.2) * 55 + 15
-  };
-
-  const constellationPositions = CONSTELLATIONS.map(constel => {
-    const starRotation = timeAngle + (constel.ra / 24) * 2 * Math.PI;
-    let centerAz = 180;
-    let centerAlt = 15;
-    
-    if (constel.name === 'Cruz del Sur') {
-      centerAz = (180 + Math.sin(starRotation) * 35 + 360) % 360;
-      centerAlt = 20 + Math.cos(starRotation) * 15;
-    } else {
-      centerAz = (90 + (hours / 24) * 180 + 90) % 360;
-      centerAlt = Math.sin((hours / 24) * Math.PI) * 75;
+  // Mapear planetas usando sus coordenadas astronómicas exactas (RA/Dec)
+  ASTROS.forEach(astro => {
+    if (astro.ra !== undefined && astro.dec !== undefined) {
+      positions[astro.id] = raDecToAzAlt(astro.ra, astro.dec, date);
     }
+  });
 
+  // Mapear constelaciones usando sus coordenadas astronómicas exactas (RA/Dec)
+  const constellationPositions = CONSTELLATIONS.map(constel => {
+    const coords = raDecToAzAlt(constel.ra, constel.dec, date);
     return {
       name: constel.name,
-      centerAz,
-      centerAlt,
+      centerAz: coords.az,
+      centerAlt: coords.alt,
       stars: constel.stars.map(star => ({
         name: star.name,
         relX: star.x,
-        relY: star.y
+        relY: star.y,
+        magnitude: parseFloat(star.magnitude),
+        glow: star.glow
       })),
       connections: constel.connections
     };
@@ -803,10 +851,11 @@ export function updateAstronomyPanel(targetedAstro, moonPhaseData, date = new Da
   }
 }
 
-// 5. EVENTOS DRAG (ARRASTRE DE CÁMARA) PARA LAPTOP Y MÓVIL
+// 5. EVENTOS DRAG (ARRASTRE DE CÁMARA) PARA LAPTOP Y MÓVIL (CON PINCH-TO-ZOOM)
 export function initSkyDragControls(canvas, onUpdateView) {
   let isDragging = false;
   let startX, startY;
+  let initialTouchDist = 0;
 
   const handleStart = (clientX, clientY) => {
     isDragging = true;
@@ -827,7 +876,7 @@ export function initSkyDragControls(canvas, onUpdateView) {
     const altSlider = document.getElementById('control-altitude');
 
     if (azSlider && altSlider) {
-      // Arrastrar a la izquierda incrementa Azimut, arriba incrementa Altitud
+      // Arrastrar a la izquierda incrementa Azimut, arriba incrementa Altitud (Simulación Brújula/Giroscopio)
       let newAz = (parseFloat(azSlider.value) - dx * 0.4 + 360) % 360;
       let newAlt = parseFloat(altSlider.value) + dy * 0.3;
 
@@ -851,104 +900,100 @@ export function initSkyDragControls(canvas, onUpdateView) {
   canvas.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
   window.addEventListener('mouseup', handleEnd);
 
+  // Soporte táctil responsivo para dispositivos móviles con prevención de scroll
   canvas.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 1) {
+    if (e.touches.length === 2) {
+      initialTouchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    } else if (e.touches.length === 1) {
       handleStart(e.touches[0].clientX, e.touches[0].clientY);
     }
-  }, { passive: true });
+  }, { passive: false });
+
   canvas.addEventListener('touchmove', (e) => {
-    if (e.touches.length === 1) {
+    if (e.cancelable) e.preventDefault(); // Evitar scroll de la página al manipular el canvas
+    if (e.touches.length === 2 && initialTouchDist > 0) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const diff = currentDist - initialTouchDist;
+      if (Math.abs(diff) > 5) {
+        const altSlider = document.getElementById('control-altitude');
+        if (altSlider) {
+          let newAlt = parseFloat(altSlider.value) + (diff > 0 ? 1 : -1);
+          altSlider.value = Math.max(0, Math.min(90, newAlt));
+          onUpdateView();
+        }
+        initialTouchDist = currentDist;
+      }
+    } else if (e.touches.length === 1) {
       handleMove(e.touches[0].clientX, e.touches[0].clientY);
     }
-  }, { passive: true });
-  window.addEventListener('touchend', handleEnd);
+  }, { passive: false });
+
+  window.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) initialTouchDist = 0;
+    handleEnd();
+  });
 }
+
 
 // ==========================================================================
 // VISOR ESTELAR INMERSIVO A PANTALLA COMPLETA PARA LAPTOP
 // ==========================================================================
 
-// Latitud de Piura: -5.1945° S | Longitud: -80.6328° W
-const LATITUDE_RAD = -5.1945 * Math.PI / 180;
-const LONGITUDE_DEG = -80.6328;
-
-// Conversor de Coordenadas Ecuatoriales (RA/Dec) a Horizontales (Azimut/Elevación) para Piura
-export function raDecToAzAlt(ra, dec, date) {
-  // LST (Local Sidereal Time) aproximado en horas
-  const hours = date.getUTCHours() + date.getMinutes() / 60 + date.getSeconds() / 3600;
-  
-  // Día del año
-  const start = new Date(date.getFullYear(), 0, 0);
-  const diff = date - start;
-  const oneDay = 1000 * 60 * 60 * 24;
-  const dayOfYear = Math.floor(diff / oneDay);
-  
-  // GMST aproximado a las 0h UT
-  const gmst0h = 6.6460656 + 0.0657098244 * dayOfYear;
-  // LST local para la longitud de Piura
-  const lst = (gmst0h + hours * 1.0027379 + LONGITUDE_DEG / 15 + 24) % 24;
-  
-  // Ángulo Horario (HA) en radianes
-  const hourAngle = (lst - ra) * 15 * Math.PI / 180;
-  const decRad = dec * Math.PI / 180;
-  
-  // Calcular Altitud/Elevación
-  const sinAlt = Math.sin(decRad) * Math.sin(LATITUDE_RAD) + Math.cos(decRad) * Math.cos(LATITUDE_RAD) * Math.cos(hourAngle);
-  const altRad = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
-  const alt = altRad * 180 / Math.PI;
-  
-  // Calcular Azimut
-  const cosAz = (Math.sin(decRad) - Math.sin(LATITUDE_RAD) * sinAlt) / (Math.cos(LATITUDE_RAD) * Math.cos(altRad));
-  const sinAz = -Math.sin(hourAngle) * Math.cos(decRad) / Math.cos(altRad);
-  
-  let azRad = Math.acos(Math.max(-1, Math.min(1, cosAz)));
-  if (sinAz < 0) {
-    azRad = 2 * Math.PI - azRad;
-  }
-  const az = azRad * 180 / Math.PI;
-  
-  return { az, alt };
-}
-
 let backgroundStars = [];
 function generateBackgroundStars() {
+  if (!backgroundStars) backgroundStars = [];
   if (backgroundStars.length > 0) return;
   
-  const famousStarNames = [
-    "Sirio", "Canopo", "Alpha Centauri", "Arcturus", "Vega",
-    "Capella", "Procyon", "Achernar", "Altair", "Aldebarán",
-    "Antares", "Espiga", "Pólux", "Fomalhaut", "Deneb"
+  const FAMOUS_STARS_CATALOG = [
+    { name: "Sirio", ra: 6.75, dec: -16.7, magnitude: -1.46, glow: "#b4dcff" },
+    { name: "Canopo", ra: 6.40, dec: -52.7, magnitude: -0.74, glow: "#ffffff" },
+    { name: "Alpha Centauri", ra: 14.66, dec: -60.8, magnitude: -0.27, glow: "#ffeaa7" },
+    { name: "Arcturus", ra: 14.26, dec: 19.2, magnitude: -0.05, glow: "#ff9671" },
+    { name: "Vega", ra: 18.62, dec: 38.8, magnitude: 0.03, glow: "#b4dcff" },
+    { name: "Capella", ra: 5.28, dec: 46.0, magnitude: 0.08, glow: "#ffeaa7" },
+    { name: "Rigel", ra: 5.24, dec: -8.2, magnitude: 0.13, glow: "#b4dcff" },
+    { name: "Procyon", ra: 7.65, dec: 5.2, magnitude: 0.34, glow: "#ffffff" },
+    { name: "Achernar", ra: 1.63, dec: -57.2, magnitude: 0.45, glow: "#b4dcff" },
+    { name: "Betelgeuse", ra: 5.92, dec: 7.4, magnitude: 0.50, glow: "#ff7850" },
+    { name: "Altair", ra: 19.84, dec: 8.9, magnitude: 0.76, glow: "#ffffff" },
+    { name: "Aldebarán", ra: 4.60, dec: 16.5, magnitude: 0.85, glow: "#ff9671" },
+    { name: "Antares", ra: 16.49, dec: -26.4, magnitude: 0.96, glow: "#ff7850" },
+    { name: "Espiga (Spica)", ra: 13.42, dec: -11.2, magnitude: 0.98, glow: "#b4dcff" },
+    { name: "Pólux", ra: 7.76, dec: 28.0, magnitude: 1.14, glow: "#ffeaa7" },
+    { name: "Fomalhaut", ra: 22.96, dec: -29.6, magnitude: 1.17, glow: "#ffffff" },
+    { name: "Deneb", ra: 20.69, dec: 45.3, magnitude: 1.25, glow: "#b4dcff" },
+    { name: "Regulus", ra: 10.14, dec: 11.9, magnitude: 1.36, glow: "#b4dcff" }
   ];
-  
-  let famousIndex = 0;
-  // 1. Estrellas principales/brillantes (Magnitudes 0.5 a 4.5)
-  for (let i = 0; i < 200; i++) {
-    const isVeryBright = Math.random() > 0.65;
-    const name = (isVeryBright && famousIndex < famousStarNames.length) ? famousStarNames[famousIndex++] : null;
-    
-    let magnitude;
-    if (name) {
-      magnitude = 0.5 + Math.random() * 2.0; // mag 0.5 a 2.5
-    } else if (isVeryBright) {
-      magnitude = 2.0 + Math.random() * 1.5; // mag 2.0 a 3.5
-    } else {
-      magnitude = 3.5 + Math.random() * 1.0; // mag 3.5 a 4.5
-    }
 
-    // Jerarquía de Opacidad (Incrementada para mayor brillo):
-    // Estrellas pequeñas de fondo (magnitudes >= 3.0) tienen opacidad moderada (0.3 a 0.45)
-    // Estrellas grandes y famosas conservan brillo nítido
-    const opacity = name ? (0.9 + Math.random() * 0.1) 
-                         : (magnitude < 3.0 ? (0.7 + Math.random() * 0.2) 
-                                            : (0.3 + Math.random() * 0.15));
-
+  // 1. Cargar catálogo de estrellas principales con nombre propio y magnitud brillante
+  FAMOUS_STARS_CATALOG.forEach(star => {
     backgroundStars.push({
-      ra: Math.random() * 24,       // 0 a 24 horas
-      dec: Math.random() * 170 - 85, // -85 a +85 grados
+      ra: star.ra,
+      dec: star.dec,
+      magnitude: star.magnitude,
+      size: Math.max(2.0, 3.2 - (star.magnitude + 1.5) * 0.4),
+      opacity: 0.95,
+      name: star.name,
+      glowColor: star.glow
+    });
+  });
+
+  // 2. Generar 250 estrellas de fondo anónimas (magnitudes 3.0 a 5.0) sin nombre
+  for (let i = 0; i < 250; i++) {
+    const magnitude = 3.0 + Math.random() * 2.0;
+    backgroundStars.push({
+      ra: Math.random() * 24,
+      dec: Math.random() * 170 - 85,
       magnitude: magnitude,
-      size: name ? 2.2 : (isVeryBright ? 1.5 : 0.9),
-      opacity: opacity,
-      name: name
+      size: Math.max(0.5, 1.2 - (magnitude - 3.0) * 0.3),
+      opacity: Math.max(0.2, 0.5 - (magnitude - 3.0) * 0.12),
+      name: null
     });
   }
 }
@@ -1039,19 +1084,16 @@ function clipMoonPhase(ctx, x, y, r, pct) {
 }
 
 // Dibuja una estrella realista usando ÚNICAMENTE degradados radiales difuminados y destello en cruz ultra fino
-function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0, type = 'star') {
+function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0, type = 'star', magnitude = undefined) {
   let r = 255, g = 255, b = 255;
   
   // Limpieza de colores (Regla 4)
   let cleanGlow = glowColor;
   if (glowColor === '#ebdcb9') {
-    // Júpiter: blanco-plateado brillante (Regla 4)
     cleanGlow = '#f2f5fa';
   } else if (glowColor === '#ff5f38' || glowColor === '#ff6b6b' || glowColor === '#ff7850') {
-    // Marte / Betelgeuse: sutil tono naranja-salmón etéreo (Regla 4)
     cleanGlow = '#ff9671';
   } else if (glowColor === '#ffcc00') {
-    // Sol: sutil amarillo-naranja cálido y suave, no café/sucio
     cleanGlow = '#ffeaa7';
   }
 
@@ -1078,24 +1120,37 @@ function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0, type = 'st
 
   const colorString = `${r}, ${g}, ${b}`;
   
-  // 1. Núcleo central blanco dinámico y proporcional a su magnitud astronómica real
+  // 1. Núcleo central blanco dinámico basado en 3 escalones de jerarquía claros
   let coreRadius = 0.8;
+  const numMag = magnitude !== undefined && !isNaN(parseFloat(magnitude)) ? parseFloat(magnitude) : undefined;
+  const intensity = numMag !== undefined ? Math.pow(10, -0.4 * numMag) : 1.0;
+
   if (type === 'planet') {
-    coreRadius = 3.5; // Entre 3px y 4px
-  } else if (type === 'famous_star') {
-    coreRadius = 1.7; // Entre 1.5px y 2px
+    coreRadius = 4.0;
+  } else if (numMag !== undefined) {
+    if (numMag < 0.5) {
+      // 1. Faros (mag < 0.5: Arcturus, Alpha Centauri, Sirio, Vega)
+      coreRadius = 2.5 * Math.pow(intensity, 0.55);
+    } else if (numMag <= 2.5) {
+      // 2. Estrellas Principales / Constelaciones (mag 0.5 a 2.5: Antares, Spica, Cruz del Sur) - piso mínimo 1.2px a 1.6px
+      coreRadius = Math.max(1.25, 1.30 + 0.35 * Math.pow(intensity, 0.5));
+    } else {
+      // 3. Estrellas de Fondo (mag > 2.5) - micro-puntos sutiles
+      coreRadius = Math.max(0.25, 0.55 * Math.pow(intensity, 0.3));
+    }
   } else {
-    coreRadius = Math.max(0.5, Math.min(1.0, size * 0.5)); // Micro-estrellas de fondo: 0.5px a 1.0px
+    coreRadius = Math.max(0.3, size * 0.5);
   }
 
   ctx.save();
-  ctx.shadowBlur = 0; // Desactivar cualquier resplandor circular artificial
+  ctx.shadowBlur = 0;
   
-  // Para Planetas: degradado radial extremadamente compacto (máximo 6px de radio, opacidad 0.1)
-  if (type === 'planet' && opacity > 0.05) {
-    const haloRadius = 6.0;
-    const radGrad = ctx.createRadialGradient(x, y, 1.0, x, y, haloRadius);
-    radGrad.addColorStop(0, `rgba(${colorString}, ${0.1 * opacity})`);
+  // Para Planetas y Estrellas Principales (mag <= 2.5): Aura de color espectral
+  if ((type === 'planet' || (numMag !== undefined && numMag <= 2.5) || type === 'famous_star') && opacity > 0.05) {
+    const haloRadius = type === 'planet' ? 7.0 : (numMag !== undefined && numMag < 0.5 ? coreRadius * 3.5 : coreRadius * 2.3);
+    const auraAlpha = type === 'planet' ? 0.12 : Math.max(0.15, Math.min(0.45, 0.25 * Math.sqrt(intensity)));
+    const radGrad = ctx.createRadialGradient(x, y, Math.max(0.5, coreRadius * 0.5), x, y, haloRadius);
+    radGrad.addColorStop(0, `rgba(${colorString}, ${auraAlpha * opacity})`);
     radGrad.addColorStop(1.0, `rgba(${colorString}, 0.0)`);
     ctx.beginPath();
     ctx.arc(x, y, haloRadius, 0, 2 * Math.PI);
@@ -1110,17 +1165,23 @@ function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0, type = 'st
   ctx.fill();
   ctx.restore();
 
-  // 2. Destellos lineales en cruz vectoriales (sin halos circulares gigantes)
+  // 2. Destellos lineales en cruz vectoriales para estrellas hiper-brillantes y planetas
   if (opacity > 0.15) {
     let spikeLength = 0;
     let lineWidth = 0.5;
 
     if (type === 'planet') {
-      spikeLength = 25.0; // Cruz de 25px para planetas
-      lineWidth = 1.0;    // Grosor fino (1px)
+      spikeLength = 25.0;
+      lineWidth = 1.0;
+    } else if (numMag !== undefined && numMag < 0.5) {
+      spikeLength = Math.max(8.0, Math.min(38.0, intensity * 10.0));
+      lineWidth = 0.8;
+    } else if (numMag !== undefined && numMag <= 2.5) {
+      spikeLength = Math.max(3.0, intensity * 4.5);
+      lineWidth = 0.5;
     } else if (type === 'famous_star') {
-      spikeLength = 10.0; // Cruz de 10px para estrellas principales
-      lineWidth = 0.5;    // Grosor ultra fino (0.5px)
+      spikeLength = Math.max(4.0, Math.min(25.0, intensity * 8.0));
+      lineWidth = 0.5;
     }
 
     if (spikeLength > 0) {
@@ -1132,9 +1193,9 @@ function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0, type = 'st
       // Eje Horizontal
       const gradH = ctx.createLinearGradient(x - spikeLength, y, x + spikeLength, y);
       gradH.addColorStop(0, `rgba(${colorString}, 0)`);
-      gradH.addColorStop(0.35, `rgba(${colorString}, ${0.2 * opacity})`);
-      gradH.addColorStop(0.5, `rgba(255, 255, 255, 1.0)`); // Blanco brillante en el centro
-      gradH.addColorStop(0.65, `rgba(${colorString}, ${0.2 * opacity})`);
+      gradH.addColorStop(0.35, `rgba(${colorString}, ${0.25 * opacity})`);
+      gradH.addColorStop(0.5, `rgba(255, 255, 255, 1.0)`);
+      gradH.addColorStop(0.65, `rgba(${colorString}, ${0.25 * opacity})`);
       gradH.addColorStop(1, `rgba(${colorString}, 0)`);
 
       ctx.strokeStyle = gradH;
@@ -1146,9 +1207,9 @@ function drawRealisticStar(ctx, x, y, size, glowColor, opacity = 1.0, type = 'st
       // Eje Vertical
       const gradV = ctx.createLinearGradient(x, y - spikeLength, x, y + spikeLength);
       gradV.addColorStop(0, `rgba(${colorString}, 0)`);
-      gradV.addColorStop(0.35, `rgba(${colorString}, ${0.2 * opacity})`);
+      gradV.addColorStop(0.35, `rgba(${colorString}, ${0.25 * opacity})`);
       gradV.addColorStop(0.5, `rgba(255, 255, 255, 1.0)`);
-      gradV.addColorStop(0.65, `rgba(${colorString}, ${0.2 * opacity})`);
+      gradV.addColorStop(0.65, `rgba(${colorString}, ${0.25 * opacity})`);
       gradV.addColorStop(1, `rgba(${colorString}, 0)`);
 
       ctx.strokeStyle = gradV;
@@ -1192,7 +1253,7 @@ function projectSpherical(az, alt, viewAz, viewAlt, viewFov, width, height) {
   const f = (Math.min(width, height) / 2) / Math.tan(fovRad / 2);
 
   return {
-    x: width / 2 + (x2 / y2) * f,
+    x: width / 2 - (x2 / y2) * f,
     y: height / 2 - (z2 / y2) * f
   };
 }
@@ -1360,21 +1421,28 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       });
     }
 
-    // 2. Dibujar micro-estrellas de fondo (se desvanecen de día)
-    if (dayFactor < 0.95) {
+    // Posición astronómica de la Luna para el filtro de deslumbramiento
+    const moonPos = positions.astros['moon'] || { az: 0, alt: -10 };
+
+    // 2. Dibujar micro-estrellas de fondo (se desvanecen de día o por deslumbramiento lunar)
+    if (dayFactor < 0.95 && microStars) {
       microStars.forEach(ms => {
         if (ms.magnitude > limitingMagnitude) return;
 
         const pos = raDecToAzAlt(ms.ra, ms.dec, date);
         if (pos.alt < 0) return;
         
+        // Filtro dinámico de deslumbramiento lunar (menos de 15° de la Luna y mag >= 1.0)
+        if (moonPos.alt > 0) {
+          const distToMoon = getAngularDistance(pos.az, pos.alt, moonPos.az, moonPos.alt);
+          if (distToMoon < 15.0 && ms.magnitude >= 1.0) return;
+        }
+
         const coords = projectSpherical(pos.az, pos.alt, viewAz, viewAlt, viewFov, width, height);
         if (!coords) return;
         
         if (coords.x >= 0 && coords.x <= width && coords.y >= 0 && coords.y <= height) {
-          // Opacidad sutil dependiente del zoom, magnitud y del factor de día
           let starOpacity = ms.opacity * (1 - dayFactor);
-          // Forzar opacidad baja (0.1 a 0.3) para micro-estrellas
           starOpacity = Math.max(0.1, Math.min(0.3, starOpacity));
           
           const starRadius = ms.magnitude >= 6.0 ? 0.5 : 0.8;
@@ -1390,14 +1458,20 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       });
     }
 
-    // 3. Dibujar estrellas de fondo brillantes (Aura realista con filtro de magnitud, se desvanecen de día)
-    if (dayFactor < 0.95) {
+    // 3. Dibujar estrellas de fondo brillantes (Aura realista con filtro de magnitud y deslumbramiento lunar)
+    if (dayFactor < 0.95 && backgroundStars) {
       backgroundStars.forEach(star => {
         if (star.magnitude > limitingMagnitude) return;
 
         const pos = raDecToAzAlt(star.ra, star.dec, date);
         if (pos.alt < 0) return; // por debajo del horizonte
         
+        // Filtro dinámico de deslumbramiento lunar (menos de 15° de la Luna y mag >= 1.0)
+        if (moonPos.alt > 0) {
+          const distToMoon = getAngularDistance(pos.az, pos.alt, moonPos.az, moonPos.alt);
+          if (distToMoon < 15.0 && star.magnitude >= 1.0) return;
+        }
+
         const coords = projectSpherical(pos.az, pos.alt, viewAz, viewAlt, viewFov, width, height);
         if (!coords) return;
         
@@ -1411,13 +1485,12 @@ export function initStellarViewer(canvas, onUpdateCoords) {
 
           if (starOpacity > 0.01) {
             const renderSize = star.size * Math.sqrt(zoomFactor);
-            const glowColor = star.name != null ? '#b4dcff' : '#ffffff';
+            const glowColor = star.glowColor || (star.name != null ? '#b4dcff' : '#ffffff');
             const isFamous = star.name != null;
             
-            if (!isFamous && star.magnitude >= 3.0) {
-              // Estrellas de fondo pequeñas
-              const starRadius = star.magnitude >= 4.0 ? 0.6 : 0.9;
-              const finalOpacity = Math.max(0.1, Math.min(0.3, starOpacity));
+            if (!isFamous) {
+              const starRadius = Math.max(0.4, Math.min(1.2, 1.5 - star.magnitude * 0.25));
+              const finalOpacity = Math.max(0.15, Math.min(0.45, starOpacity));
               ctx.save();
               ctx.beginPath();
               ctx.arc(coords.x, coords.y, starRadius, 0, Math.PI * 2);
@@ -1425,12 +1498,11 @@ export function initStellarViewer(canvas, onUpdateCoords) {
               ctx.fill();
               ctx.restore();
             } else {
-              // Estrellas principales/famosas (núcleo 1.5px a 2px y destello sutil)
-              const finalOpacity = Math.max(0.8, Math.min(1.0, starOpacity * 1.2));
-              drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor, finalOpacity, 'famous_star');
+              const finalOpacity = Math.max(0.85, Math.min(1.0, starOpacity * 1.2));
+              const starMag = parseFloat(star.magnitude);
+              drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor, finalOpacity, 'famous_star', starMag);
             }
 
-            // Si la estrella de fondo tiene nombre, añadir a candidatos
             if (star.name) {
               focusCandidates.push({
                 name: star.name,
@@ -1446,9 +1518,8 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     }
 
     // 4. Dibujar constelaciones (SOLO estrellas, CERO líneas, CERO etiquetas por defecto, se desvanecen de día)
-    if (dayFactor < 0.95) {
+    if (dayFactor < 0.95 && positions?.constellations) {
       positions.constellations.forEach(constel => {
-        // Registrar el centro de la constelación como candidato
         const centerCoords = projectSpherical(constel.centerAz, constel.centerAlt, viewAz, viewAlt, viewFov, width, height);
 
         if (centerCoords && constel.centerAlt >= 0) {
@@ -1467,15 +1538,22 @@ export function initStellarViewer(canvas, onUpdateCoords) {
           
           if (starAlt < 0) return; // por debajo del horizonte
           
+          // Filtro dinámico de deslumbramiento lunar para estrellas de constelaciones
+          if (moonPos.alt > 0) {
+            const distToMoon = getAngularDistance(starAz, starAlt, moonPos.az, moonPos.alt);
+            if (distToMoon < 15.0) return;
+          }
+
           const coords = projectSpherical(starAz, starAlt, viewAz, viewAlt, viewFov, width, height);
           if (!coords) return;
           
           const renderSize = 2.5 * Math.sqrt(zoomFactor);
-          const glowColor = star.name === 'Betelgeuse' ? '#ff7850' : '#00e5ff';
+          const glowColor = star.glow || (star.name === 'Betelgeuse' ? '#ff7850' : '#b4dcff');
           const isSpikeStar = ['Betelgeuse', 'Rigel', 'Acrux', 'Mimosa', 'Gacrux'].includes(star.name);
           const starOpacity = Math.max(0.8, Math.min(1.0, 1.0 * (1 - dayFactor)));
           const type = isSpikeStar ? 'famous_star' : 'star';
-          drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor, starOpacity, type);
+          const starMag = parseFloat(star.magnitude !== undefined ? star.magnitude : 2.0);
+          drawRealisticStar(ctx, coords.x, coords.y, renderSize, glowColor, starOpacity, type, starMag);
 
           // Registrar estrella
           focusCandidates.push({
@@ -1765,9 +1843,10 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     } else if (e.touches.length === 1) {
       handleStart(e.touches[0].clientX, e.touches[0].clientY);
     }
-  }, { passive: true });
+  }, { passive: false });
 
   canvas.addEventListener('touchmove', e => {
+    if (e.cancelable) e.preventDefault();
     if (e.touches.length === 2 && initialTouchDist > 0) {
       const currentDist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
@@ -1778,7 +1857,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     } else if (e.touches.length === 1) {
       handleMove(e.touches[0].clientX, e.touches[0].clientY);
     }
-  }, { passive: true });
+  }, { passive: false });
 
   canvas.addEventListener('touchend', e => {
     if (e.touches.length < 2) {
