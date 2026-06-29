@@ -52,8 +52,22 @@ export async function loadCandlesChart() {
         height: '100%',
         width: isDesktop ? '100%' : candlesData.length * 15,
         background: 'transparent',
+        animations: {
+          enabled: isDesktop, // ACTIVA LA ANIMACIÓN SOLO EN LAPTOP PARA SUAVIZAR LOS TROMPICONES
+          easing: 'easeinout',
+          speed: 150, // Velocidad ultra rápida para que responda al instante pero con fluidez líquida
+          animateGradually: {
+            enabled: false // Desactiva el dibujado paso a paso que causa retrasos
+          },
+          dynamicAnimation: {
+            enabled: isDesktop, // Suaviza el cambio de los ejes cuando la rueda gira
+            speed: 150
+          }
+        },
         zoom: {
-          enabled: isDesktop
+          enabled: isDesktop,
+          type: 'x',
+          autoScaleYaxis: isDesktop // Permite el ajuste del eje Y de forma fluida junto con la animación
         },
         selection: {
           enabled: false
@@ -62,7 +76,6 @@ export async function loadCandlesChart() {
           show: isDesktop,
           autoSelected: 'zoom'
         },
-        animations: { enabled: false },
         foreColor: '#64748b',
         events: {
           beforeMounted: (chartContext, config) => {
@@ -86,11 +99,13 @@ export async function loadCandlesChart() {
         }
       },
       yaxis: {
+        opposite: false,
         forceNiceScale: true,
         tooltip: {
           enabled: false
         },
         labels: {
+          show: isDesktop,
           formatter: function (val) {
             if (val === null || val === undefined || isNaN(val)) return '';
             const absVal = Math.abs(val);
@@ -133,6 +148,9 @@ export async function loadCandlesChart() {
     chartInstance = new ApexCharts(chartContainer, options);
     await chartInstance.render();
 
+    // Renderizar barra estática lateral de precios para la vista móvil aislada
+    renderMobilePricesSidebar(candlesData);
+
     // Desplazar el contenedor con scroll nativo hacia el extremo derecho solo en móviles
     if (!isDesktop && candlesData.length > 25) {
       const wrapper = chartContainer.closest('.chart-container-wrapper') || chartContainer.parentElement;
@@ -155,6 +173,53 @@ export async function loadCandlesChart() {
       loader.classList.remove('hidden');
     }
   }
+}
+
+function renderMobilePricesSidebar(candlesData) {
+  const sidebar = document.getElementById('mobile-fixed-prices-axis');
+  if (!sidebar) return;
+
+  const isDesktop = window.innerWidth >= 768;
+  if (isDesktop || !candlesData || candlesData.length === 0) {
+    sidebar.classList.add('hidden');
+    return;
+  }
+
+  sidebar.classList.remove('hidden');
+
+  let maxPrice = -Infinity;
+  let minPrice = Infinity;
+
+  candlesData.forEach(c => {
+    if (Array.isArray(c.y)) {
+      const high = c.y[1];
+      const low = c.y[2];
+      if (high > maxPrice) maxPrice = high;
+      if (low < minPrice) minPrice = low;
+    }
+  });
+
+  if (maxPrice === -Infinity || minPrice === Infinity) return;
+
+  const count = 5;
+  const step = (maxPrice - minPrice) / (count - 1);
+  let html = '';
+
+  const formatVal = (val) => {
+    const absVal = Math.abs(val);
+    if (absVal >= 1e9) return '$' + (val / 1e9).toFixed(1) + 'B';
+    if (absVal >= 1e6) return '$' + (val / 1e6).toFixed(1) + 'M';
+    if (absVal >= 1e3) return '$' + (val / 1e3).toFixed(1) + 'K';
+    if (absVal < 0.01 && absVal > 0) return '$' + val.toFixed(4);
+    return '$' + val.toFixed(2);
+  };
+
+  for (let i = 0; i < count; i++) {
+    const val = maxPrice - i * step;
+    html += `<span class="price-tick">${formatVal(val)}</span>`;
+  }
+
+  sidebar.innerHTML = html;
 }
 
 function updateHeaderPrice(price) {

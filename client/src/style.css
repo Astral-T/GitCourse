@@ -2563,6 +2563,10 @@ body.globe-fullscreen-active #globe-3d {
 }
 
 /* 1. COMPORTAMIENTO POR DEFECTO (Escritorio / Laptop): Interactividad completa para ratón y rueda */
+#financial-candles-chart {
+  transform: translateZ(0); /* Fuerza la aceleración por hardware de la tarjeta gráfica en la laptop */
+}
+
 #financial-candles-chart, .apexcharts-canvas, .apexcharts-svg {
   pointer-events: auto !important;
 }
@@ -2579,8 +2583,57 @@ body.globe-fullscreen-active #globe-3d {
     display: none !important;
   }
   
-  .chart-container-wrapper {
+  /* Fuerza a que la barra superior o selector de activos ocupe todo el ancho sin aplastarse */
+  .chart-header, .chart-controls-wrapper {
     width: 100% !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px !important;
+    box-sizing: border-box;
+    position: relative !important;
+    z-index: 100 !important; /* Garantiza que esté por encima de la gráfica móvil */
+    pointer-events: auto !important; /* Fuerza a que el navegador registre los clics y toques */
+  }
+
+  .asset-selector-dropdown, #select-active-asset {
+    position: relative !important;
+    z-index: 100 !important;
+    pointer-events: auto !important;
+  }
+
+  .mobile-chart-viewport, .chart-container-wrapper {
+    z-index: 1 !important;
+  }
+
+  /* El contenedor híbrido del gráfico y los precios fijos debe ir ABAJO de la barra de activos */
+  .mobile-chart-viewport {
+    display: flex !important;
+    flex-direction: row !important; /* Mantiene precios a la izquierda y velas a la derecha */
+    position: relative;
+    width: 100% !important;
+    height: calc(100% - 60px) !important; /* Descuenta el espacio de la barra superior para que no se desborde verticalmente */
+    overflow: hidden;
+  }
+  .mobile-prices-sidebar {
+    display: flex !important;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 60px; /* Ancho fijo para los precios a la izquierda */
+    height: calc(100% - 30px); /* Alineado con el área de las velas */
+    background: #0c0d16;
+    color: #64748b;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 11px;
+    padding: 10px 5px;
+    box-sizing: border-box;
+    z-index: 50; /* Por encima de cualquier scroll */
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .chart-container-wrapper {
+    flex: 1;
     overflow-x: scroll !important;
     -webkit-overflow-scrolling: touch !important;
     touch-action: pan-x !important;
