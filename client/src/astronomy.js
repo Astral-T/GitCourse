@@ -1337,6 +1337,28 @@ export function initStellarViewer(canvas, onUpdateCoords) {
   let labelOpacity = 0.0;
   let currentFocusType = null; // 'hover' o 'center'
 
+  // Variables de Control de Etiquetas por Quietud
+  let showLabels = true;
+  let labelsOpacity = 1.0;
+
+  const clearQuietTimer = () => {
+    showLabels = false;
+    labelsOpacity = 0.0;
+    if (window.labelsTimeout) {
+      clearTimeout(window.labelsTimeout);
+      window.labelsTimeout = null;
+    }
+  };
+
+  const resetQuietTimer = () => {
+    clearTimeout(window.labelsTimeout);
+    showLabels = false;
+    labelsOpacity = 0.0;
+    window.labelsTimeout = setTimeout(() => {
+      showLabels = true;
+    }, 1200);
+  };
+
   generateBackgroundStars();
   generateMicroStars();
   generateRandomNebulas();
@@ -1346,6 +1368,19 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     const height = canvas.height = window.innerHeight;
 
     ctx.clearRect(0, 0, width, height);
+
+    // Si hay interacción de arrastre o zoom, forzar la ocultación de etiquetas
+    if (isDragging || totalTouchDistance > 0 || window.lastZoomY != null) {
+      showLabels = false;
+      labelsOpacity = 0.0;
+    }
+
+    // Incremento progresivo de opacidad (fade-in gradual en ~500ms)
+    if (showLabels) {
+      labelsOpacity = Math.min(1.0, labelsOpacity + 0.035);
+    } else {
+      labelsOpacity = 0.0;
+    }
 
     // Si las dimensiones son cero o inválidas, no renderizar este frame
     if (width <= 0 || height <= 0 || isNaN(width) || isNaN(height)) {
@@ -1687,11 +1722,11 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     // Mostrar nombres únicamente si el zoom muestra como máximo 5 o 6 estrellas simultáneamente en pantalla
     const showStarNames = visibleStarsOnScreen.length > 0 && visibleStarsOnScreen.length <= 6;
 
-    if (showStarNames && dayFactor < 0.95) {
+    if (showStarNames && dayFactor < 0.95 && labelsOpacity > 0) {
       ctx.save();
       ctx.font = '500 12px "Plus Jakarta Sans", sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-      ctx.shadowColor = 'rgba(0, 229, 255, 0.6)';
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.9 * labelsOpacity})`;
+      ctx.shadowColor = `rgba(0, 229, 255, ${0.6 * labelsOpacity})`;
       ctx.shadowBlur = 4;
       ctx.textAlign = 'left';
       visibleStarsOnScreen.forEach(obj => {
@@ -1760,11 +1795,15 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     }
 
     // Dibujar la etiqueta y guías de enfoque si está activo
-    if (focusedObject && labelOpacity > 0) {
+    const finalLabelOpacity = Math.min(labelOpacity, labelsOpacity);
+    if (focusedObject && finalLabelOpacity > 0) {
       let lx = width / 2;
       let ly = height / 2 + 35;
 
-      if (currentFocusType === 'hover') {
+      if (focusedObject.type === 'constellation') {
+        lx = width / 2;
+        ly = height - 80; // Centrado abajo de forma limpia
+      } else if (currentFocusType === 'hover' && !isUsingTouch) {
         lx = mouseX;
         ly = mouseY + 28;
         // Limitar coordenadas de etiqueta para que no salgan de pantalla
@@ -1773,7 +1812,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       }
 
       // Guía visual de enfoque circular sutil al rededor del cuerpo celeste
-      ctx.strokeStyle = `rgba(0, 229, 255, ${0.45 * labelOpacity})`;
+      ctx.strokeStyle = `rgba(0, 229, 255, ${0.45 * finalLabelOpacity})`;
       ctx.lineWidth = 0.8;
       ctx.beginPath();
       ctx.arc(focusedObject.x, focusedObject.y, focusedObject.size + 8, 0, 2 * Math.PI);
@@ -1781,7 +1820,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
 
       // Guía del centro de enfoque en cruz si se enfoca al medio (para celular o laptop centrando)
       if (currentFocusType === 'center') {
-        ctx.strokeStyle = `rgba(255, 255, 255, ${0.12 * labelOpacity})`;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.12 * finalLabelOpacity})`;
         ctx.lineWidth = 0.8;
         ctx.beginPath();
         ctx.moveTo(width / 2 - 12, height / 2);
@@ -1796,10 +1835,10 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       }
 
       // Dibujar etiqueta tipográfica elegante
-      ctx.fillStyle = `rgba(255, 255, 255, ${labelOpacity})`;
+      ctx.fillStyle = `rgba(255, 255, 255, ${finalLabelOpacity})`;
       ctx.font = '300 13px "Plus Jakarta Sans", sans-serif';
       ctx.textAlign = 'center';
-      ctx.shadowColor = 'rgba(0, 229, 255, 0.4)';
+      ctx.shadowColor = `rgba(0, 229, 255, ${0.4 * finalLabelOpacity})`;
       ctx.shadowBlur = 5;
 
       let labelText = focusedObject.name.toUpperCase();
@@ -1825,6 +1864,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     isDragging = true;
     startX = clientX;
     startY = clientY;
+    clearQuietTimer();
   };
 
   const handleMove = (clientX, clientY) => {
@@ -1835,8 +1875,8 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     startX = clientX;
     startY = clientY;
 
-    // Ambos ejes unificados invertidos (arrastre natural)
-    viewAz = (viewAz - dx * 0.12 + 360) % 360;
+    // Ambos ejes unificados (arrastre horizontal invertido para concordar intuitivamente)
+    viewAz = (viewAz + dx * 0.12 + 360) % 360;
     viewAlt = viewAlt + dy * 0.1; // invertido: arrastrar hacia arriba mueve la cámara hacia abajo
     if (viewAlt < -15) viewAlt = -15; 
     if (viewAlt > 90) viewAlt = 90;
@@ -1849,15 +1889,45 @@ export function initStellarViewer(canvas, onUpdateCoords) {
   // Manejo del scroll del ratón para Zoom (Laptop)
   const handleWheel = e => {
     e.preventDefault();
+    clearQuietTimer();
     const zoomSpeed = 0.04;
     viewFov += e.deltaY * zoomSpeed;
     if (viewFov < 5) viewFov = 5;       // zoom máximo (aislar una estrella)
     if (viewFov > 120) viewFov = 120;   // zoom mínimo (campo amplio)
+    resetQuietTimer();
   };
 
   // Capturar coordenadas del mouse para Laptop Hover
   canvas.addEventListener('mousemove', e => {
-    if (totalTouchDistance > 0 || isUsingTouch || e.touches) return; // DETIENE EL MOUSE SI HAY TOQUES MÓVILES ACTIVOS
+    // SI EL USUARIO MANTIENE PRESIONADO SHIFT (ya sea en escritorio o emulando con mouse en el celular)
+    if (e.shiftKey || (e.touches && e.touches.length === 2)) {
+      if (e.preventDefault) e.preventDefault();
+      
+      // Forzamos el apagado del arrastre orbital
+      isDragging = false;
+      
+      // Usamos el desplazamiento vertical del cursor (clientY o el primer touch) para simular el pellizco
+      const currentY = e.touches ? e.touches[0].clientY : e.clientY;
+      
+      if (!window.lastZoomY) {
+        window.lastZoomY = currentY;
+        return;
+      }
+      
+      const deltaY = window.lastZoomY - currentY; // Detecta si arrastras hacia arriba o hacia abajo
+      
+      // Modificamos el campo de visión de la cámara (viewFov)
+      viewFov -= deltaY * 0.1; 
+      viewFov = Math.max(15, Math.min(95, viewFov)); // Límites seguros
+      
+      window.lastZoomY = currentY;
+      return; // Bloqueo absoluto: evita que rote o arrastre el cosmos
+    } else {
+      // Si el usuario suelta Shift, limpiamos la variable de control
+      window.lastZoomY = null;
+    }
+
+    if (totalTouchDistance > 0) return;
     const rect = canvas.getBoundingClientRect();
     mouseX = e.clientX - rect.left;
     mouseY = e.clientY - rect.top;
@@ -1867,58 +1937,72 @@ export function initStellarViewer(canvas, onUpdateCoords) {
   });
 
   canvas.addEventListener('mousedown', e => {
-    if (totalTouchDistance > 0 || (e.touches && e.touches.length > 0)) return;
+    if (totalTouchDistance > 0) return;
     isUsingTouch = false;
     handleStart(e.clientX, e.clientY);
   });
   
-  window.addEventListener('mouseup', handleEnd);
+  window.addEventListener('mouseup', () => {
+    window.lastZoomY = null;
+    handleEnd();
+    clearTimeout(window.labelsTimeout);
+    window.labelsTimeout = setTimeout(() => {
+      showLabels = true;
+    }, 1200);
+  });
   canvas.addEventListener('wheel', handleWheel, { passive: false });
 
   // Soporte táctil móvil (con Pinch-to-Zoom Híbrido y multitáctil geométrico acumulativo)
-  canvas.addEventListener('touchstart', e => {
-    console.log("Toques detectados:", e.touches.length);
+  canvas.addEventListener('touchstart', (e) => {
     isUsingTouch = true;
     mouseX = -1000;
     mouseY = -1000;
+    clearQuietTimer();
     
-    if (e.touches.length === 2) {
-      isDragging = false; // Bloquea el paneo de un solo dedo instantáneamente
-      totalTouchDistance = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
+    if (e.touches.length === 2 || e.shiftKey) {
+      isDragging = false;
+      const currentY = e.touches ? e.touches[0].clientY : e.clientY;
+      window.lastZoomY = currentY;
     } else if (e.touches.length === 1) {
       handleStart(e.touches[0].clientX, e.touches[0].clientY);
     }
   }, { passive: false });
 
-  canvas.addEventListener('touchmove', e => {
-    console.log("Toques detectados:", e.touches.length);
-    if (e.touches.length === 2) {
-      if (e.cancelable) e.preventDefault(); // Evita que el navegador mueva la pantalla
+  canvas.addEventListener('touchmove', (e) => {
+    // CASO 1: ZOOM ACTIVO (Con Shift o con 2 dedos)
+    if (e.shiftKey || (e.touches && e.touches.length === 2)) {
+      e.preventDefault();
       isDragging = false;
-      const currentDist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      
-      if (totalTouchDistance > 0) {
-        const delta = currentDist - totalTouchDistance;
-        viewFov -= delta * 0.1; // Modifica el zoom acumulativo directamente
-        viewFov = Math.max(10, Math.min(80, viewFov)); // Límites de seguridad de la cámara
+      labelsOpacity = 0; // Oculta nombres al hacer zoom
+
+      const currentY = e.touches ? e.touches[0].clientY : e.clientY;
+      if (window.lastZoomY !== undefined && window.lastZoomY !== null) {
+        const deltaY = window.lastZoomY - currentY;
+        viewFov -= deltaY * 0.1;
+        viewFov = Math.max(15, Math.min(95, viewFov)); // Límite calibrado igual a la laptop
       }
-      totalTouchDistance = currentDist;
-    } else if (e.touches.length === 1 && isDragging) {
+      window.lastZoomY = currentY;
+      return; // Bloquea que este movimiento intente rotar la cámara
+    }
+
+    // CASO 2: ARRASTRE ORBITAL Clásico (1 solo dedo, sin Shift)
+    if (isDragging && e.touches.length === 1) {
+      labelsOpacity = 0; // Oculta nombres al mover la pantalla
       if (e.cancelable) e.preventDefault();
       handleMove(e.touches[0].clientX, e.touches[0].clientY);
     }
   }, { passive: false });
 
-  canvas.addEventListener('touchend', e => {
-    if (e.touches.length < 2) {
-      totalTouchDistance = 0;
-    }
+  canvas.addEventListener('touchend', (e) => {
+    isDragging = false;
+    window.lastZoomY = null;
+
+    // Temporizador de quietud para mostrar etiquetas
+    clearTimeout(window.labelsTimeout);
+    window.labelsTimeout = setTimeout(() => {
+      showLabels = true;
+    }, 1200);
+
     handleEnd();
   });
 
@@ -1934,9 +2018,16 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       mouseY = -1000;
       isUsingTouch = false;
       currentDate = new Date();
+      showLabels = true;
+      labelsOpacity = 1.0;
+      if (window.labelsTimeout) {
+        clearTimeout(window.labelsTimeout);
+        window.labelsTimeout = null;
+      }
       if (!animationFrameId) render();
     },
     stop: () => {
+      clearQuietTimer();
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
