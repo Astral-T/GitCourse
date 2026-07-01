@@ -1811,12 +1811,15 @@ export function initStellarViewer(canvas, onUpdateCoords) {
         ly = Math.max(30, Math.min(height - 40, ly));
       }
 
-      // Guía visual de enfoque circular sutil al rededor del cuerpo celeste
-      ctx.strokeStyle = `rgba(0, 229, 255, ${0.45 * finalLabelOpacity})`;
-      ctx.lineWidth = 0.8;
-      ctx.beginPath();
-      ctx.arc(focusedObject.x, focusedObject.y, focusedObject.size + 8, 0, 2 * Math.PI);
-      ctx.stroke();
+      // Guía visual de enfoque circular sutil al rededor del cuerpo celeste (solo en PC de escritorio)
+      const isDesktop = !isUsingTouch;
+      if (isDesktop) {
+        ctx.strokeStyle = `rgba(0, 229, 255, ${0.45 * finalLabelOpacity})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(focusedObject.x, focusedObject.y, focusedObject.size + 8, 0, 2 * Math.PI);
+        ctx.stroke();
+      }
 
       // Guía del centro de enfoque en cruz si se enfoca al medio (para celular o laptop centrando)
       if (currentFocusType === 'center') {
