@@ -2229,6 +2229,39 @@ body.globe-fullscreen-active #globe-3d {
   margin-top: 4px;
 }
 
+/* Media Queries para forzar rotación a Landscape (Horizontal) en Celulares */
+@media screen and (max-width: 768px) and (orientation: portrait) {
+  #stellar-viewer-overlay {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    width: 100vh !important;  /* El ancho toma la altura de la pantalla */
+    height: 100vw !important; /* La altura toma el ancho de la pantalla */
+    transform: translate(-50%, -50%) rotate(90deg) !important;
+    transform-origin: center !important;
+    z-index: 100000 !important;
+  }
+  #stellar-viewer-canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
+@media screen and (max-width: 768px) and (orientation: landscape) {
+  #stellar-viewer-overlay {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    transform: none !important;
+  }
+  #stellar-viewer-canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
 .btn:disabled, .btn[disabled] {
   opacity: 0.4 !important;
   cursor: not-allowed !important;

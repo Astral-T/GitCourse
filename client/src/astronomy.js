@@ -924,9 +924,9 @@ export function initSkyDragControls(canvas, onUpdateView) {
     const altSlider = document.getElementById('control-altitude');
 
     if (azSlider && altSlider) {
-      // Arrastrar a la izquierda incrementa Azimut, arriba incrementa Altitud (Simulación Brújula/Giroscopio)
-      let newAz = (parseFloat(azSlider.value) - dx * 0.4 + 360) % 360;
-      let newAlt = parseFloat(altSlider.value) + dy * 0.3;
+      // Arrastrar a la izquierda decrementa Azimut (pantalla va a la derecha), abajo decrementa Altitud (pantalla va hacia arriba)
+      let newAz = (parseFloat(azSlider.value) + dx * 0.4 + 360) % 360;
+      let newAlt = parseFloat(altSlider.value) - dy * 0.3;
 
       if (newAlt < 0) newAlt = 0;
       if (newAlt > 90) newAlt = 90;
@@ -1479,8 +1479,8 @@ export function initStellarViewer(canvas, onUpdateCoords) {
   generateRandomNebulas();
 
   function render() {
-    const width = canvas.width = window.innerWidth;
-    const height = canvas.height = window.innerHeight;
+    const width = canvas.width = canvas.clientWidth;
+    const height = canvas.height = canvas.clientHeight;
 
     ctx.clearRect(0, 0, width, height);
 
@@ -2070,15 +2070,24 @@ export function initStellarViewer(canvas, onUpdateCoords) {
 
   const handleMove = (clientX, clientY) => {
     if (!isDragging) return;
-    const dx = clientX - startX;
-    const dy = clientY - startY;
+    let dx = clientX - startX;
+    let dy = clientY - startY;
 
     startX = clientX;
     startY = clientY;
 
+    // Si el dispositivo está sostenido verticalmente pero el contenedor está rotado 90° (landscape forzado),
+    // remapeamos los movimientos de arrastre físicos para que se correspondan con la vista visual.
+    const isForceLandscape = window.innerWidth < window.innerHeight && window.innerWidth <= 768;
+    if (isForceLandscape) {
+      const tempDx = dx;
+      dx = dy;
+      dy = tempDx;
+    }
+
     // Ambos ejes unificados (arrastre horizontal invertido para concordar intuitivamente)
     viewAz = (viewAz + dx * 0.12 + 360) % 360;
-    viewAlt = viewAlt + dy * 0.1; // invertido: arrastrar hacia arriba mueve la cámara hacia abajo
+    viewAlt = viewAlt - dy * 0.1; // Si arrastramos hacia abajo (dy > 0), elevación disminuye (pantalla sube)
     if (viewAlt < -15) viewAlt = -15; 
     if (viewAlt > 90) viewAlt = 90;
   };
