@@ -331,11 +331,15 @@
           
           <!-- Contenedor del gráfico financiero híbrido -->
           <div class="mobile-chart-viewport">
-            <div id="mobile-fixed-prices-axis" class="mobile-prices-sidebar hidden"></div>
-            
-            <div class="chart-container-wrapper">
-              <div id="financial-candles-chart"></div>
-              <div class="chart-loading" id="chart-loader">Cargando gráfico de velas...</div>
+            <div class="trading-layout-container">
+              <div id="mobile-fixed-prices-axis" class="price-axis-fixed mobile-prices-sidebar hidden"></div>
+              
+              <div class="trading-chart-wrapper">
+                <div class="chart-container-wrapper trading-chart-container">
+                  <div id="financial-candles-chart"></div>
+                  <div class="chart-loading" id="chart-loader">Cargando gráfico de velas...</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

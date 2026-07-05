@@ -49,8 +49,8 @@ export async function loadCandlesChart() {
       }],
       chart: {
         type: 'candlestick',
-        height: '100%',
-        width: isDesktop ? '100%' : candlesData.length * 15,
+        height: 400,
+        width: '100%',
         background: 'transparent',
         animations: {
           enabled: isDesktop, // ACTIVA LA ANIMACIÓN SOLO EN LAPTOP PARA SUAVIZAR LOS TROMPICONES
@@ -65,16 +65,13 @@ export async function loadCandlesChart() {
           }
         },
         zoom: {
-          enabled: isDesktop,
-          type: 'x',
-          autoScaleYaxis: isDesktop // Permite el ajuste del eje Y de forma fluida junto con la animación
+          enabled: false
         },
         selection: {
           enabled: false
         },
         toolbar: {
-          show: isDesktop,
-          autoSelected: 'zoom'
+          show: false
         },
         foreColor: '#64748b',
         events: {
@@ -99,13 +96,14 @@ export async function loadCandlesChart() {
         }
       },
       yaxis: {
+        show: true,
         opposite: false,
         forceNiceScale: true,
         tooltip: {
           enabled: false
         },
         labels: {
-          show: isDesktop,
+          show: true,
           formatter: function (val) {
             if (val === null || val === undefined || isNaN(val)) return '';
             const absVal = Math.abs(val);
