@@ -96,7 +96,7 @@ export async function loadCandlesChart() {
         }
       },
       yaxis: {
-        show: true,
+        show: isDesktop,
         opposite: false,
         forceNiceScale: true,
         tooltip: {
@@ -173,52 +173,6 @@ export async function loadCandlesChart() {
   }
 }
 
-function renderMobilePricesSidebar(candlesData) {
-  const sidebar = document.getElementById('mobile-fixed-prices-axis');
-  if (!sidebar) return;
-
-  const isDesktop = window.innerWidth >= 768;
-  if (isDesktop || !candlesData || candlesData.length === 0) {
-    sidebar.classList.add('hidden');
-    return;
-  }
-
-  sidebar.classList.remove('hidden');
-
-  let maxPrice = -Infinity;
-  let minPrice = Infinity;
-
-  candlesData.forEach(c => {
-    if (Array.isArray(c.y)) {
-      const high = c.y[1];
-      const low = c.y[2];
-      if (high > maxPrice) maxPrice = high;
-      if (low < minPrice) minPrice = low;
-    }
-  });
-
-  if (maxPrice === -Infinity || minPrice === Infinity) return;
-
-  const count = 5;
-  const step = (maxPrice - minPrice) / (count - 1);
-  let html = '';
-
-  const formatVal = (val) => {
-    const absVal = Math.abs(val);
-    if (absVal >= 1e9) return '$' + (val / 1e9).toFixed(1) + 'B';
-    if (absVal >= 1e6) return '$' + (val / 1e6).toFixed(1) + 'M';
-    if (absVal >= 1e3) return '$' + (val / 1e3).toFixed(1) + 'K';
-    if (absVal < 0.01 && absVal > 0) return '$' + val.toFixed(4);
-    return '$' + val.toFixed(2);
-  };
-
-  for (let i = 0; i < count; i++) {
-    const val = maxPrice - i * step;
-    html += `<span class="price-tick">${formatVal(val)}</span>`;
-  }
-
-  sidebar.innerHTML = html;
-}
 
 function updateHeaderPrice(price) {
   const priceEl = document.getElementById('active-asset-price');
@@ -448,4 +402,51 @@ export function initTradingEvents() {
       loadCandlesChart();
     });
   });
+}
+
+function renderMobilePricesSidebar(candlesData) {
+  const sidebar = document.getElementById('mobile-fixed-prices-axis');
+  if (!sidebar) return;
+
+  const isDesktop = window.innerWidth >= 768;
+  if (isDesktop || !candlesData || candlesData.length === 0) {
+    sidebar.classList.add('hidden');
+    return;
+  }
+
+  sidebar.classList.remove('hidden');
+
+  let maxPrice = -Infinity;
+  let minPrice = Infinity;
+
+  candlesData.forEach(c => {
+    if (Array.isArray(c.y)) {
+      const high = c.y[1];
+      const low = c.y[2];
+      if (high > maxPrice) maxPrice = high;
+      if (low < minPrice) minPrice = low;
+    }
+  });
+
+  if (maxPrice === -Infinity || minPrice === Infinity) return;
+
+  const count = 5;
+  const step = (maxPrice - minPrice) / (count - 1);
+  let html = '';
+
+  const formatVal = (val) => {
+    const absVal = Math.abs(val);
+    if (absVal >= 1e9) return '$' + (val / 1e9).toFixed(1) + 'B';
+    if (absVal >= 1e6) return '$' + (val / 1e6).toFixed(1) + 'M';
+    if (absVal >= 1e3) return '$' + (val / 1e3).toFixed(1) + 'K';
+    if (absVal < 0.01 && absVal > 0) return '$' + val.toFixed(4);
+    return '$' + val.toFixed(2);
+  };
+
+  for (let i = 0; i < count; i++) {
+    const val = maxPrice - i * step;
+    html += `<span>${formatVal(val)}</span>`;
+  }
+
+  sidebar.innerHTML = html;
 }

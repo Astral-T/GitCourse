@@ -2868,14 +2868,47 @@ body.globe-fullscreen-active #globe-3d {
   }
 }
 
-/* Ocultar eje de precios izquierdo mock anterior en móvil */
-#mobile-fixed-prices-axis {
-    display: none !important;
-}
-
 /* Evitar dobles barras de desplazamiento horizontal */
 body, html, .trading-layout-container {
     overflow-x: hidden !important;
+}
+
+/* Contenedor del gráfico financiero híbrido con posicionamiento relativo */
+.trading-layout-container {
+    position: relative !important;
+}
+
+/* Columna de precios externa fija flotante */
+.fixed-price-column {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    bottom: 25px !important;
+    width: 60px !important;
+    z-index: 10 !important;
+    background-color: var(--bg-dark-medium, #0c0d16) !important; /* Fondo oscuro exacto e integrado del portal */
+    pointer-events: none !important; /* Habilita el click-through y arrastre a través de la columna */
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    padding: 12px 8px 12px 12px !important; /* Alineación interna y separación visual */
+    box-sizing: border-box !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.03) !important; /* Delimitación sutil con el gráfico */
+}
+
+.fixed-price-column span {
+    color: var(--text-secondary, #b2b5be) !important;
+    font-family: var(--font-family) !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Ocultar eje Y nativo en pantallas móviles para evitar duplicados */
+@media (max-width: 767px) {
+    .apexcharts-yaxis-container {
+        display: none !important;
+    }
 }
 
 /* Configurar scroll horizontal táctil nativo único */
@@ -2901,17 +2934,7 @@ body, html, .trading-layout-container {
     pointer-events: none !important;
 }
 
-/* Congelar la columna nativa de precios de ApexCharts en la izquierda de forma absoluta */
-.apexcharts-yaxis-container {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    height: 100% !important;
-    background-color: #1e222d !important;
-    z-index: 9999 !important;
-    pointer-events: none !important;
-}
-
+/* Estilo nativo para pantallas de escritorio */
 .apexcharts-yaxis text {
     fill: #ffffff !important;
 }
