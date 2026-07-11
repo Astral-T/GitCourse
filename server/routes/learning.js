@@ -627,85 +627,90 @@ router.post('/quiz-submit', async (req, res) => {
     const results = [];
     let correctCount = 0;
 
+    await db.query('BEGIN');
+
+    // 1. Asegurar que el país está descubierto en el pasaporte
+    await db.query(
+      `INSERT INTO user_passports (country_code, country_name)
+       VALUES ($1, $2)
+       ON CONFLICT (country_code) DO NOTHING`,
+      [countryCode, countryData.name]
+    );
+
+    // 2. Procesar cada pregunta para la repetición espaciada
     for (let i = 0; i < 3; i++) {
-      const isCorrect = parseInt(answers[i]) === quizQuestions[i].answer;
+      const q = quizQuestions[i];
+      const isCorrect = parseInt(answers[i]) === q.answer;
       if (isCorrect) correctCount++;
+
       results.push({
         questionIdx: i,
         correct: isCorrect,
-        correctOption: quizQuestions[i].answer
+        correctOption: q.answer
       });
-    }
 
-    // Si respondieron las 3 bien, subimos el nivel en la base de datos
-    let newLevel = 0;
-    let unlockedCard = false;
+      const questionText = `[${category}] ${q.question}`;
+      const answerText = q.options[q.answer];
 
-    if (correctCount === 3) {
-      await db.query('BEGIN');
-
-      // 1. Asegurar que el país está descubierto en el pasaporte
-      await db.query(
-        `INSERT INTO user_passports (country_code, country_name)
-         VALUES ($1, $2)
-         ON CONFLICT (country_code) DO NOTHING`,
-        [countryCode, countryData.name]
+      // Verificar si la tarjeta ya existe en learning_cards
+      const cardCheck = await db.query(
+        'SELECT id, repetition, interval, ease_factor FROM learning_cards WHERE country_code = $1 AND question = $2',
+        [countryCode, questionText]
       );
 
-      // Determinar columna a actualizar
-      let columnName = '';
-      if (category === 'Comida') columnName = 'comida_nivel';
-      else if (category === 'Naturaleza') columnName = 'naturaleza_nivel';
-      else if (category === 'Economía') columnName = 'economia_nivel';
-      else if (category === 'Costumbres') columnName = 'costumbres_nivel';
-      else if (category === 'Geografía') columnName = 'geografia_nivel';
+      if (isCorrect) {
+        if (cardCheck.rowCount > 0) {
+          const card = cardCheck.rows[0];
+          const newRep = parseInt(card.repetition) + 1;
+          const newInterval = Math.max(7, Math.round(parseInt(card.interval) * parseFloat(card.ease_factor)));
+          const nextReview = new Date();
+          nextReview.setDate(nextReview.getDate() + newInterval);
 
-      // 2. Obtener nivel actual
-      const currentRes = await db.query(`SELECT ${columnName} FROM user_passports WHERE country_code = $1`, [countryCode]);
-      const currentLevel = currentRes.rows[0]?.[columnName] || 0;
-
-      if (currentLevel < 3) {
-        newLevel = currentLevel + 1;
-        await db.query(`UPDATE user_passports SET ${columnName} = $1 WHERE country_code = $2`, [newLevel, countryCode]);
-      } else {
-        newLevel = 3; // ya al máximo
-      }
-
-      // 3. Crear una tarjeta de repetición espaciada si acaban de aprender esta sección por primera vez (nivel 1)
-      if (currentLevel === 0) {
-        // Seleccionamos la primera pregunta del quiz como la flashcard de repaso
-        const flashcardQuestion = `[${category}] ${quizQuestions[0].question}`;
-        const flashcardAnswer = quizQuestions[0].options[quizQuestions[0].answer];
-
-        // Verificar si la tarjeta ya existe para no duplicar
-        const cardCheck = await db.query(
-          'SELECT id FROM learning_cards WHERE country_code = $1 AND question = $2',
-          [countryCode, flashcardQuestion]
-        );
-
-        if (cardCheck.rowCount === 0) {
           await db.query(
-            `INSERT INTO learning_cards (country_code, question, answer, repetition, interval, ease_factor, next_review)
-             VALUES ($1, $2, $3, 0, 1, 2.50, CURRENT_TIMESTAMP)`,
-            [countryCode, flashcardQuestion, flashcardAnswer]
+            `UPDATE learning_cards 
+             SET repetition = $1, interval = $2, last_reviewed = CURRENT_TIMESTAMP, next_review = $3
+             WHERE id = $4`,
+            [newRep, newInterval, nextReview, card.id]
           );
-          unlockedCard = true;
+        } else {
+          const nextReview = new Date();
+          nextReview.setDate(nextReview.getDate() + 7); // Intervalo inicial alto (7 días)
+          await db.query(
+            `INSERT INTO learning_cards (country_code, question, answer, repetition, interval, ease_factor, last_reviewed, next_review)
+             VALUES ($1, $2, $3, 1, 7, 2.50, CURRENT_TIMESTAMP, $4)`,
+            [countryCode, questionText, answerText, nextReview]
+          );
+        }
+      } else {
+        // Respuesta incorrecta
+        if (cardCheck.rowCount > 0) {
+          const card = cardCheck.rows[0];
+          await db.query(
+            `UPDATE learning_cards 
+             SET repetition = 0, interval = 1, last_reviewed = CURRENT_TIMESTAMP, next_review = CURRENT_TIMESTAMP
+             WHERE id = $1`,
+            [card.id]
+          );
+        } else {
+          await db.query(
+            `INSERT INTO learning_cards (country_code, question, answer, repetition, interval, ease_factor, last_reviewed, next_review)
+             VALUES ($1, $2, $3, 0, 1, 2.50, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+            [countryCode, questionText, answerText]
+          );
         }
       }
-
-      await db.query('COMMIT');
     }
+
+    await db.query('COMMIT');
 
     res.json({
       success: correctCount === 3,
       correctCount,
-      results,
-      newLevel,
-      unlockedCard
+      results
     });
 
   } catch (err) {
-    if (correctCount === 3) await db.query('ROLLBACK');
+    await db.query('ROLLBACK');
     console.error('Error al calificar quiz:', err.message);
     res.status(500).json({ error: err.message });
   }
@@ -747,13 +752,102 @@ router.post('/discover', async (req, res) => {
 
     const isNewCountry = passportRes.rowCount > 0;
 
+    // 2. Obtener todas las tarjetas existentes para este país (incluyendo el estado ignored)
+    const existingCardsRes = await db.query(
+      'SELECT id, question, repetition, interval, next_review, ignored FROM learning_cards WHERE country_code = $1',
+      [countryCode]
+    );
+    const existingCardsMap = {};
+    existingCardsRes.rows.forEach(row => {
+      existingCardsMap[row.question] = row;
+    });
+
+    // 3. Recopilar todas las preguntas posibles de las 5 categorías
+    const categories = ['Comida', 'Naturaleza', 'Economía', 'Costumbres', 'Geografía'];
+    const allQuestions = [];
+
+    categories.forEach(cat => {
+      const quizList = countryData[cat].quiz;
+      quizList.forEach(q => {
+        const questionText = `[${cat}] ${q.question}`;
+        const answerText = q.options[q.answer];
+        allQuestions.push({
+          category: cat,
+          question: questionText,
+          answer: answerText,
+          rawQuestion: q
+        });
+      });
+    });
+
+    // 4. Agrupar las preguntas en las 3 categorías de prioridad
+    const groupA = []; // Blancas (no existen)
+    const groupB = []; // Fallidas/Pendientes (repetition = 0 o vencidas)
+    const groupC = []; // Conocidas (repetition > 0 y futuras)
+
+    const now = new Date();
+
+    allQuestions.forEach(q => {
+      const card = existingCardsMap[q.question];
+      if (!card) {
+        groupA.push(q);
+      } else {
+        // Excluir de forma absoluta si está marcada como ignorada
+        if (card.ignored) {
+          return;
+        }
+        const nextReviewDate = new Date(card.next_review);
+        if (parseInt(card.repetition) === 0 || nextReviewDate <= now) {
+          groupB.push({ ...q, card });
+        } else {
+          groupC.push({ ...q, card });
+        }
+      }
+    });
+
+    // 5. Seleccionar una pregunta basada en prioridad
+    let selected;
+    if (groupA.length > 0) {
+      selected = groupA[Math.floor(Math.random() * groupA.length)];
+    } else if (groupB.length > 0) {
+      selected = groupB[Math.floor(Math.random() * groupB.length)];
+    } else if (groupC.length > 0) {
+      // Si todas son conocidas, elegimos la que esté más cercana a vencer o vencida
+      groupC.sort((a, b) => new Date(a.card.next_review) - new Date(b.card.next_review));
+      selected = groupC[0];
+    }
+
+    if (!selected) {
+      return res.status(404).json({ error: 'Todas las preguntas de este país han sido marcadas como "No me interesa".' });
+    }
+
+    // 6. Obtener o insertar la tarjeta en la base de datos
+    let card;
+    if (selected.card) {
+      card = {
+        id: selected.card.id,
+        country_code: countryCode,
+        question: selected.question,
+        answer: selected.answer
+      };
+    } else {
+      const insertRes = await db.query(
+        `INSERT INTO learning_cards (country_code, question, answer, repetition, interval, ease_factor, next_review)
+         VALUES ($1, $2, $3, 0, 1, 2.50, CURRENT_TIMESTAMP)
+         RETURNING id, country_code, question, answer`,
+        [countryCode, selected.question, selected.answer]
+      );
+      card = insertRes.rows[0];
+    }
+
     await db.query('COMMIT');
 
     res.json({
       message: isNewCountry ? `País ${countryData.name} descubierto y registrado.` : `País ${countryData.name} ya estaba descubierto.`,
       countryName: countryData.name,
       countryCode,
-      isNew: isNewCountry
+      isNew: isNewCountry,
+      card
     });
   } catch (err) {
     await db.query('ROLLBACK');
@@ -769,7 +863,7 @@ router.get('/cards', async (req, res) => {
       SELECT c.id, c.country_code, p.country_name, c.question, c.answer, c.repetition, c.interval, c.ease_factor, c.next_review
       FROM learning_cards c
       JOIN user_passports p ON c.country_code = p.country_code
-      WHERE c.next_review <= CURRENT_TIMESTAMP
+      WHERE c.next_review <= CURRENT_TIMESTAMP AND c.ignored = FALSE
       ORDER BY c.next_review ASC
     `);
     res.json(result.rows);
@@ -866,6 +960,33 @@ router.post('/review', async (req, res) => {
   } catch (err) {
     await db.query('ROLLBACK');
     console.error('Error al procesar el repaso de la flashcard:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/learning/ignore - Marca una tarjeta como ignorada/archivada para que nunca más aparezca
+router.post('/ignore', async (req, res) => {
+  const { cardId } = req.body;
+
+  if (cardId === undefined) {
+    return res.status(400).json({ error: 'Se requiere cardId.' });
+  }
+
+  try {
+    const result = await db.query(
+      'UPDATE learning_cards SET ignored = TRUE WHERE id = $1 RETURNING *',
+      [cardId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Pregunta ignorada correctamente y excluida de futuros repasos.'
+    });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

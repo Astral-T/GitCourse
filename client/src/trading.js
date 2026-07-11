@@ -290,10 +290,22 @@ function updateOrderTotalCost() {
 }
 
 // 4. EJECUTAR ORDEN (COMPRA / VENTA)
+function showTradingFeedback(message, type) {
+  const fb = document.getElementById('trading-feedback-msg');
+  if (!fb) return;
+  if (type === 'hidden') {
+    fb.className = 'trading-feedback-msg hidden';
+    fb.textContent = '';
+  } else {
+    fb.textContent = message;
+    fb.className = `trading-feedback-msg ${type}`;
+  }
+}
+
 async function submitOrder() {
   const amountInput = document.getElementById('order-amount');
   if (!amountInput || !amountInput.value || parseFloat(amountInput.value) <= 0) {
-    alert('Ingresa una cantidad válida antes de operar.');
+    showTradingFeedback('Ingresa una cantidad válida antes de operar.', 'error');
     return;
   }
 
@@ -317,11 +329,15 @@ async function submitOrder() {
     const data = await response.json();
 
     if (!response.ok) {
-      alert(`Error en la operación: ${data.error}`);
+      const errorMsg = data.error && (data.error.toLowerCase().includes('saldo insuficiente') || data.error.toLowerCase().includes('insuficiente'))
+        ? 'Fondos insuficientes'
+        : (data.error || 'Error en la operación');
+      showTradingFeedback(errorMsg, 'error');
       return;
     }
 
-    alert(`✨ ${data.message}\nPrecio Ejecutado: $${data.executedPrice.toLocaleString('en-US')} | Costo: $${data.totalCost.toFixed(2)} USDT`);
+    const successMsg = activeOrderAction === 'BUY' ? 'Compra exitosa' : 'Venta exitosa';
+    showTradingFeedback(successMsg, 'success');
     amountInput.value = '';
     
     // Recargar datos actualizados
@@ -329,7 +345,7 @@ async function submitOrder() {
     await loadCandlesChart();
   } catch (err) {
     console.error('Error al enviar orden de trading:', err);
-    alert('Ocurrió un error al procesar tu orden.');
+    showTradingFeedback('Ocurrió un error al procesar tu orden.', 'error');
   }
 }
 
@@ -356,6 +372,7 @@ export function initTradingEvents() {
       document.getElementById('order-asset-display').textContent = `${activeAsset.symbol} - ${activeAsset.name}`;
       
       if (amountInput) amountInput.value = '';
+      showTradingFeedback('', 'hidden');
 
       loadCandlesChart();
     });
@@ -369,6 +386,8 @@ export function initTradingEvents() {
       activeOrderAction = 'BUY';
       btnSubmit.className = 'btn btn-green btn-full-width';
       btnSubmit.textContent = `Colocar Orden de Compra`;
+      if (amountInput) amountInput.value = '';
+      showTradingFeedback('', 'hidden');
       updateOrderTotalCost();
     });
 
@@ -378,13 +397,18 @@ export function initTradingEvents() {
       activeOrderAction = 'SELL';
       btnSubmit.className = 'btn btn-red btn-full-width';
       btnSubmit.textContent = `Colocar Orden de Venta`;
+      if (amountInput) amountInput.value = '';
+      showTradingFeedback('', 'hidden');
       updateOrderTotalCost();
     });
   }
 
   // Evento al cambiar la cantidad
   if (amountInput) {
-    amountInput.addEventListener('input', updateOrderTotalCost);
+    amountInput.addEventListener('input', () => {
+      showTradingFeedback('', 'hidden');
+      updateOrderTotalCost();
+    });
   }
 
   // Enviar orden

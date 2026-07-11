@@ -2938,3 +2938,87 @@ body, html, .trading-layout-container {
 .apexcharts-yaxis text {
     fill: #ffffff !important;
 }
+
+/* Feedback del Quiz en el Globo */
+.quiz-feedback-msg {
+  display: block;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: center;
+  transition: var(--transition-smooth);
+}
+
+.quiz-feedback-msg.hidden {
+  display: none;
+}
+
+.quiz-feedback-msg.success {
+  background: rgba(57, 255, 20, 0.1);
+  border: 1px solid var(--green-border);
+  color: var(--green-neon);
+}
+
+.quiz-feedback-msg.error {
+  background: rgba(255, 51, 102, 0.1);
+  border: 1px solid rgba(255, 51, 102, 0.3);
+  color: var(--red-neon);
+}
+
+.quiz-feedback-msg.warning {
+  background: rgba(255, 185, 0, 0.1);
+  border: 1px solid rgba(255, 185, 0, 0.3);
+  color: #ffb900;
+}
+
+/* Botón de descarte ("No me interesa") en Flashcard */
+.btn-grade-ignore {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: #888888 !important;
+}
+
+.btn-grade-ignore:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  color: #ffffff !important;
+}
+
+@media (max-width: 480px) {
+  .grade-buttons {
+    flex-wrap: wrap !important;
+  }
+  .grade-buttons .btn {
+    min-width: calc(50% - 10px) !important;
+  }
+}
+
+/* Feedback para el Simulador de Trading */
+.trading-feedback-msg {
+  display: block;
+  margin-top: 12px;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: center;
+  font-weight: 600;
+  transition: var(--transition-smooth);
+}
+
+.trading-feedback-msg.hidden {
+  display: none;
+}
+
+.trading-feedback-msg.success {
+  background: rgba(57, 255, 20, 0.1);
+  border: 1px solid var(--green-border);
+  color: var(--green-neon);
+}
+
+.trading-feedback-msg.error {
+  background: rgba(255, 51, 102, 0.1);
+  border: 1px solid rgba(255, 51, 102, 0.3);
+  color: var(--red-neon);
+}
+

@@ -212,9 +212,10 @@
               <div class="fc-grade-selector">
                 <p>¿Qué tan fácil te resultó recordar?</p>
                 <div class="grade-buttons">
-                  <button class="btn btn-grade-red" data-grade="1">Difícil</button>
+                  <button class="btn btn-grade-red" data-grade="1">Víctima/Difícil</button>
                   <button class="btn btn-grade-yellow" data-grade="3">Medio</button>
                   <button class="btn btn-grade-green" data-grade="5">Fácil</button>
+                  <button class="btn btn-grade-ignore" id="btn-grade-ignore">No me interesa</button>
                 </div>
               </div>
             </div>
@@ -377,6 +378,7 @@
                 <strong id="order-total-cost">$0.00 USDT</strong>
               </div>
 
+              <div id="trading-feedback-msg" class="trading-feedback-msg hidden"></div>
               <button class="btn btn-green btn-full-width" id="btn-submit-order">Colocar Orden de Compra</button>
             </div>
           </div>
@@ -495,6 +497,7 @@
           <div class="quiz-questions-box" id="g-quiz-questions-container">
             <!-- Preguntas renderizadas dinámicamente -->
           </div>
+          <div id="g-quiz-feedback" class="quiz-feedback-msg hidden"></div>
           <button class="btn btn-green btn-full-width" id="btn-submit-globe-quiz" style="margin-top: 15px;">Enviar Respuestas</button>
         </div>
       </div>

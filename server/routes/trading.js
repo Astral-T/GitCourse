@@ -112,23 +112,9 @@ function generateMockCandles(symbol, interval = '1d') {
 
 // Obtener precio actual instantáneo de un activo
 async function getCurrentPrice(symbol, type) {
-  try {
-    if (type === 'crypto') {
-      const bSymbol = getBinanceSymbol(symbol);
-      const url = `https://api.binance.com/api/v3/ticker/price?symbol=${bSymbol}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Binance error: ${response.status}`);
-      const data = await response.json();
-      return parseFloat(data.price);
-    } else {
-      // Para acciones, siempre usar el precio mock determinista del día
-      // para asegurar sincronización 100% estable entre temporalidades.
-      return getDeterministicMockPrice(symbol);
-    }
-  } catch (err) {
-    console.error(`Error al obtener precio actual para ${symbol}:`, err.message);
-    return getDeterministicMockPrice(symbol);
-  }
+  // Para asegurar sincronización 100% estable entre temporalidades, siempre usar
+  // el precio mock determinista del día tanto para acciones como divisas.
+  return getDeterministicMockPrice(symbol);
 }
 
 // GET /api/trading/candles - Obtiene datos de velas históricas para los gráficos
@@ -140,103 +126,11 @@ router.get('/candles', async (req, res) => {
   }
 
   try {
-    if (type === 'crypto') {
-      try {
-        const bSymbol = getBinanceSymbol(symbol);
-        // Mapear intervalos de Binance: 15m, 1h, 1d
-        const bInterval = ['15m', '1h', '1d'].includes(interval) ? interval : '1d';
-        const url = `https://api.binance.com/api/v3/klines?symbol=${bSymbol}&interval=${bInterval}&limit=60`;
-        
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Binance error: ${response.status}`);
-        const data = await response.json();
-        
-        // Formato para ApexCharts Candlestick: { x: timestamp, y: [O, H, L, C] }
-        const candles = data.map(kline => ({
-          x: parseInt(kline[0]), // open time
-          y: [
-            parseFloat(kline[1]), // open
-            parseFloat(kline[2]), // high
-            parseFloat(kline[3]), // low
-            parseFloat(kline[4])  // close
-          ]
-        }));
-
-        res.json(candles);
-      } catch (cryptoErr) {
-        console.warn(`Binance falló para ${symbol} (${interval}), generando velas de respaldo:`, cryptoErr.message);
-        const mockCandles = generateMockCandles(symbol, interval);
-        res.json(mockCandles);
-      }
-    } else {
-      // Acciones mediante yahooFinance.chart o historical
-      const today = new Date();
-      const startDate = new Date();
-      
-      let daysBack = 90;
-      if (interval === '15m') daysBack = 2;
-      else if (interval === '1h') daysBack = 7;
-      
-      startDate.setDate(today.getDate() - daysBack);
-
-      try {
-        if (interval === '15m' || interval === '1h') {
-          // Utilizar chart para intervalos de intradía
-          const result = await yahooFinance.chart(symbol, {
-            period1: startDate,
-            period2: today,
-            interval: interval
-          });
-
-          if (!result || !result.quotes || result.quotes.length === 0) {
-            throw new Error(`Yahoo Finance chart no devolvió datos para ${symbol}`);
-          }
-
-          // Filtrar cotizaciones válidas, parsear float, y ordenar cronológicamente ascendente
-          const candles = result.quotes
-            .filter(q => q && q.date && q.open !== null && q.high !== null && q.low !== null && q.close !== null && q.open !== undefined && q.high !== undefined && q.low !== undefined && q.close !== undefined)
-            .map(q => ({
-              x: new Date(q.date).getTime(),
-              y: [
-                parseFloat(q.open),
-                parseFloat(q.high),
-                parseFloat(q.low),
-                parseFloat(q.close)
-              ]
-            }))
-            .sort((a, b) => a.x - b.x);
-
-          res.json(candles);
-        } else {
-          // Para diario, usar el método historical convencional
-          const data = await yahooFinance.historical(symbol, {
-            period1: startDate,
-            period2: today,
-            interval: '1d'
-          });
-
-          // Filtrar cotizaciones válidas, parsear float, y ordenar cronológicamente ascendente
-          const candles = data
-            .filter(item => item && item.date && item.open !== null && item.high !== null && item.low !== null && item.close !== null && item.open !== undefined && item.high !== undefined && item.low !== undefined && item.close !== undefined)
-            .map(item => ({
-              x: new Date(item.date).getTime(),
-              y: [
-                parseFloat(item.open),
-                parseFloat(item.high),
-                parseFloat(item.low),
-                parseFloat(item.close)
-              ]
-            }))
-            .sort((a, b) => a.x - b.x);
-
-          res.json(candles);
-        }
-      } catch (yfErr) {
-        console.warn(`Yahoo Finance chart/historical falló para ${symbol} (${interval}), generando velas de respaldo:`, yfErr.message);
-        const mockCandles = generateMockCandles(symbol, interval);
-        res.json(mockCandles);
-      }
-    }
+    // Para asegurar determinismo, estabilidad e inmovilidad de precios
+    // sin importar la temporalidad elegida, generamos velas mock deterministas
+    // tanto para divisas como para acciones.
+    const mockCandles = generateMockCandles(symbol, interval);
+    res.json(mockCandles);
   } catch (err) {
     console.error(`Error crítico al obtener velas para ${symbol}:`, err.message);
     const mockCandles = generateMockCandles(symbol, interval);

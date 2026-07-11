@@ -19,7 +19,8 @@ import {
   initGlobe3D,
   initGlobeModalEvents,
   setGlobeActive,
-  resizeGlobeRenderer
+  resizeGlobeRenderer,
+  startSingleCardReview
 } from './roulette.js';
 
 import { 
@@ -326,12 +327,13 @@ async function initApp() {
   if (rouletteWheel) {
     initRoulette(rouletteWheel);
     const btnSpin = document.getElementById('btn-spin-roulette');
-    if (btnSpin) {
+    if (btnSpin && !btnSpin.dataset.listenerAdded) {
+      btnSpin.dataset.listenerAdded = 'true';
       btnSpin.addEventListener('click', () => {
         btnSpin.disabled = true;
-        spinAndDiscover(rouletteWheel, (data) => {
+        spinAndDiscover(rouletteWheel, async (data) => {
           btnSpin.disabled = false;
-          alert(`🎉 ¡Ruleta Detenida!\nHas descubierto a: ${data.countryName}. Se han generado preguntas de geografía, comida y cultura en tu pasaporte.`);
+          startSingleCardReview(data.card);
           refreshLearningData();
         });
       });

@@ -33,6 +33,18 @@ let pendingCards = [];
 let currentCardIndex = 0;
 const API_URL = 'http://localhost:3000/api/learning';
 
+// Locks de control para la ruleta
+const useRef = (initialValue) => ({ current: initialValue });
+const hasTriggered = useRef(false);
+
+let currentSpinId = 0;
+let isSingleCardSession = false;
+
+// Event handlers guardados para evitar fugas/duplicación en window
+let activeMousemoveHandler = null;
+let activeMouseupHandler = null;
+let activeTouchendHandler = null;
+
 // Estados del Globo 3D
 let rotLon = 0.5; // rotación longitudinal
 let rotLat = 0.2; // rotación latitudinal
@@ -121,16 +133,30 @@ export function initRoulette(canvas) {
     lastTouchAngle = getAngle(e.clientX, e.clientY);
   });
 
-  window.addEventListener('mousemove', e => {
+  // Limpiar listeners anteriores de window para evitar disparos dobles y fugas
+  if (activeMousemoveHandler) window.removeEventListener('mousemove', activeMousemoveHandler);
+  if (activeMouseupHandler) window.removeEventListener('mouseup', activeMouseupHandler);
+  if (activeTouchendHandler) window.removeEventListener('touchend', activeTouchendHandler);
+
+  activeMousemoveHandler = e => {
     if (!isDraggingWheel || isSpinning) return;
     const currentTouchAngle = getAngle(e.clientX, e.clientY);
     const delta = currentTouchAngle - lastTouchAngle;
     lastTouchAngle = currentTouchAngle;
     currentAngle += delta;
     drawWheel(currentAngle);
-  });
+  };
 
-  window.addEventListener('mouseup', () => { isDraggingWheel = false; });
+  activeMouseupHandler = () => { isDraggingWheel = false; };
+
+  activeTouchendHandler = e => {
+    if (e.touches.length < 2) initialPinchDist = 0;
+    isDraggingWheel = false;
+  };
+
+  window.addEventListener('mousemove', activeMousemoveHandler);
+  window.addEventListener('mouseup', activeMouseupHandler);
+  window.addEventListener('touchend', activeTouchendHandler);
 
   canvas.addEventListener('touchstart', e => {
     if (isSpinning) return;
@@ -167,22 +193,34 @@ export function initRoulette(canvas) {
     }
   }, { passive: false });
 
-  window.addEventListener('touchend', e => {
-    if (e.touches.length < 2) initialPinchDist = 0;
-    isDraggingWheel = false;
-  });
-
   window.spinRoulette = function(onSpinComplete) {
     if (isSpinning) return;
     isSpinning = true;
+
+    // Resetear el valor a false únicamente cuando se inicie un nuevo giro de la ruleta.
+    hasTriggered.current = false;
+
+    // Generar un ID de spin único para descartar loops de animación antiguos
+    currentSpinId = Math.random();
+    const thisSpinId = currentSpinId;
 
     let velocity = Math.random() * 0.3 + 0.3;
     const friction = 0.985;
     const minVelocity = 0.001;
 
     function animate() {
+      // Abortar si un nuevo spin se inició en paralelo
+      if (thisSpinId !== currentSpinId) return;
+
       if (velocity < minVelocity) {
         isSpinning = false;
+
+        // Al detenerse la ruleta, antes de elegir o inyectar la pregunta en el estado, verifica:
+        // si 'hasTriggered.current' ya es true, aborta la ejecución con un 'return' inmediato.
+        // Si es false, cámbialo a true y procede a seleccionar la pregunta.
+        if (hasTriggered.current) return;
+        hasTriggered.current = true;
+
         const pointerAngle = (3 * Math.PI) / 2;
         const normalizedAngle = (pointerAngle - currentAngle) % (2 * Math.PI);
         const positiveAngle = normalizedAngle < 0 ? normalizedAngle + 2 * Math.PI : normalizedAngle;
@@ -206,9 +244,13 @@ export function initRoulette(canvas) {
   };
 }
 
+let isDiscovering = false;
+
 export async function spinAndDiscover(canvas, onComplete) {
-  if (isSpinning) return;
+  if (isSpinning || isDiscovering) return;
   window.spinRoulette(async (winner) => {
+    if (isDiscovering) return;
+    isDiscovering = true;
     try {
       const response = await fetch(`${API_URL}/discover`, {
         method: 'POST',
@@ -219,6 +261,8 @@ export async function spinAndDiscover(canvas, onComplete) {
       if (onComplete) onComplete(data);
     } catch (err) {
       console.error('Error al registrar descubrimiento en la ruleta:', err);
+    } finally {
+      isDiscovering = false;
     }
   });
 }
@@ -584,6 +628,13 @@ async function loadPassportDataOnly() {
   }
 }
 
+function showQuizFeedback(message, type) {
+  const fb = document.getElementById('g-quiz-feedback');
+  if (!fb) return;
+  fb.textContent = message;
+  fb.className = `quiz-feedback-msg ${type}`;
+}
+
 // Inicializador de listeners para el modal del Globo
 export function initGlobeModalEvents() {
   const modal = document.getElementById('globe-country-modal');
@@ -617,6 +668,13 @@ export function initGlobeModalEvents() {
       detailsPanel.classList.add('hidden');
       quizSection.classList.remove('hidden');
 
+      // Ocultar feedback anterior
+      const fb = document.getElementById('g-quiz-feedback');
+      if (fb) fb.className = 'quiz-feedback-msg hidden';
+
+      // Re-habilitar botón
+      if (btnSubmitQuiz) btnSubmitQuiz.disabled = false;
+
       // Dibujar las 3 preguntas
       const container = document.getElementById('g-quiz-questions-container');
       container.innerHTML = '';
@@ -646,17 +704,38 @@ export function initGlobeModalEvents() {
     btnBackToFacts.addEventListener('click', () => {
       quizSection.classList.add('hidden');
       detailsPanel.classList.remove('hidden');
+      const fb = document.getElementById('g-quiz-feedback');
+      if (fb) fb.className = 'quiz-feedback-msg hidden';
     });
   }
 
   // Enviar respuestas del quiz
   if (btnSubmitQuiz) {
     btnSubmitQuiz.addEventListener('click', async () => {
+      showQuizFeedback('', 'hidden');
+
+      // Resetear estilos y badges anteriores
+      for (let i = 0; i < 3; i++) {
+        const qGroup = document.querySelector(`#g-quiz-questions-container .quiz-q-group:nth-child(${i+1})`);
+        if (qGroup) {
+          const qTitle = qGroup.querySelector('.quiz-question-title');
+          if (qTitle) qTitle.style.color = '';
+          const options = qGroup.querySelectorAll('.quiz-option-label');
+          options.forEach(optLabel => {
+            optLabel.style.border = '';
+            optLabel.style.background = '';
+            optLabel.style.color = '';
+            const badge = optLabel.querySelector('.correct-badge');
+            if (badge) badge.remove();
+          });
+        }
+      }
+
       const selectedAnswers = [];
       for (let i = 0; i < 3; i++) {
         const checked = document.querySelector(`input[name="g-quiz-q${i}"]:checked`);
         if (!checked) {
-          alert('Por favor responde las 3 preguntas del mini-quiz.');
+          showQuizFeedback('Por favor responde las 3 preguntas del mini-quiz.', 'warning');
           return;
         }
         selectedAnswers.push(parseInt(checked.value));
@@ -674,22 +753,68 @@ export function initGlobeModalEvents() {
         });
         const result = await response.json();
 
+        // Evaluar respuestas y pintar colores neón de inmediato
+        result.results.forEach(res => {
+          const qGroup = document.querySelector(`#g-quiz-questions-container .quiz-q-group:nth-child(${res.questionIdx+1})`);
+          const qTitle = qGroup?.querySelector('.quiz-question-title');
+          if (qTitle) {
+            qTitle.style.color = res.correct ? 'var(--green-neon)' : 'var(--red-neon)';
+          }
+
+          if (qGroup) {
+            const options = qGroup.querySelectorAll('.quiz-option-label');
+            options.forEach((optLabel, optIdx) => {
+              const radio = optLabel.querySelector('input');
+              const isUserSelected = radio ? radio.checked : false;
+              const isCorrectOption = optIdx === res.correctOption;
+
+              if (isCorrectOption) {
+                optLabel.style.border = '1px solid var(--green-neon)';
+                optLabel.style.background = 'rgba(57, 255, 20, 0.1)';
+                optLabel.style.color = 'var(--green-neon)';
+                if (!optLabel.querySelector('.correct-badge')) {
+                  const badge = document.createElement('span');
+                  badge.className = 'correct-badge';
+                  badge.textContent = ' (Correcta)';
+                  badge.style.fontWeight = 'bold';
+                  optLabel.appendChild(badge);
+                }
+              } else if (isUserSelected && !res.correct) {
+                optLabel.style.border = '1px solid var(--red-neon)';
+                optLabel.style.background = 'rgba(255, 51, 102, 0.1)';
+                optLabel.style.color = 'var(--red-neon)';
+              }
+            });
+          }
+        });
+
         if (result.success) {
-          alert(`🎉 ¡Excelente! Respondiste correctamente las 3 preguntas del quiz de ${activeCategory}.\nSello de ${activeCategory} subió de nivel.`);
-          await updateGlobeModalDetails(); // recarga el progreso en el modal
-          await loadPassport(); // refresca los sellos en el pasaporte visual inferior
+          showQuizFeedback(`🎉 ¡Excelente! Respondiste correctamente las 3 preguntas. El algoritmo Spaced Repetition se ha actualizado.`, 'success');
+          
+          // Deshabilitar inputs
+          const inputs = document.querySelectorAll('#g-quiz-questions-container input');
+          inputs.forEach(input => input.disabled = true);
+          btnSubmitQuiz.disabled = true;
+
+          // Cerrar modal automáticamente después de exactamente 5500ms
+          setTimeout(async () => {
+            modal.classList.add('hidden');
+            
+            // Habilitar submit
+            btnSubmitQuiz.disabled = false;
+
+            await updateGlobeModalDetails(); // recarga el progreso en el modal (que cambia a facts)
+            await loadPassport(); // refresca los sellos en el pasaporte
+            await loadPendingCards(); // recarga tarjetas pendientes
+          }, 5500);
         } else {
           // Destacar preguntas incorrectas
-          alert('⚠️ Respuestas incorrectas detectadas. Por favor vuelve a leer el tema e inténtalo de nuevo.');
-          result.results.forEach(res => {
-            const qTitle = document.querySelector(`#g-quiz-questions-container .quiz-q-group:nth-child(${res.questionIdx+1}) .quiz-question-title`);
-            if (qTitle) {
-              qTitle.style.color = res.correct ? 'var(--green-neon)' : 'var(--red-neon)';
-            }
-          });
+          showQuizFeedback('⚠️ Respuestas incorrectas detectadas. Por favor vuelve a leer el tema e inténtalo de nuevo.', 'error');
+          await loadPendingCards(); // recarga tarjetas pendientes
         }
       } catch (err) {
         console.error('Error al enviar respuestas del quiz:', err);
+        showQuizFeedback('❌ Error al enviar respuestas. Intenta de nuevo.', 'error');
       }
     });
   }
@@ -699,21 +824,30 @@ export function initGlobeModalEvents() {
 export async function loadPendingCards() {
   try {
     const res = await fetch(`${API_URL}/cards`);
-    pendingCards = await res.json();
-    updatePendingBadge();
-    return pendingCards;
+    const cards = await res.json();
+    if (isSingleCardSession) {
+      updatePendingBadgeCount(1);
+    } else {
+      pendingCards = cards;
+      updatePendingBadge();
+    }
+    return cards;
   } catch (err) {
     console.error('Error al obtener tarjetas pendientes:', err);
   }
 }
 
 function updatePendingBadge() {
+  updatePendingBadgeCount(pendingCards.length);
+}
+
+function updatePendingBadgeCount(count) {
   const badge = document.getElementById('cards-pending-count');
   const btnStart = document.getElementById('btn-start-reviews');
-  if (badge) badge.textContent = `${pendingCards.length} Pendientes`;
+  if (badge) badge.textContent = `${count} Pendientes`;
   if (btnStart) {
-    btnStart.textContent = `Iniciar Repaso (${pendingCards.length})`;
-    btnStart.disabled = pendingCards.length === 0;
+    btnStart.textContent = `Iniciar Repaso (${count})`;
+    btnStart.disabled = count === 0;
   }
 }
 
@@ -721,6 +855,26 @@ export function startReviews() {
   if (pendingCards.length === 0) return;
   currentCardIndex = 0;
   showCard(pendingCards[currentCardIndex]);
+}
+
+export function startSingleCardReview(card) {
+  if (!card) return;
+
+  isSingleCardSession = true;
+
+  // Si la pregunta seleccionada ya existe en el estado de pendientes de la sesión de juego actual,
+  // filtra el arreglo usando el ID único de la pregunta antes de actualizar el estado.
+  if (pendingCards.some(c => c.id === card.id)) {
+    pendingCards = pendingCards.filter(c => c.id !== card.id);
+  }
+  pendingCards.push(card);
+
+  // Asegura que para esta sesión individual de juego actual (tiro de ruleta) la cola contenga únicamente esta tarjeta
+  pendingCards = [card];
+  currentCardIndex = 0;
+  
+  showCard(card);
+  updatePendingBadgeCount(1);
 }
 
 function showCard(card) {
@@ -736,7 +890,10 @@ function showCard(card) {
   const categoryMatch = card.question.match(/^\[(Comida|Naturaleza|Economía|Costumbres|Geografía)\]/);
   const category = categoryMatch ? categoryMatch[1] : 'Comida';
 
-  document.getElementById('fc-country-name').textContent = `${card.country_name} — Sello: ${category}`;
+  const countryObj = RULETA_COUNTRIES.find(c => c.code === card.country_code);
+  const countryName = card.country_name || (countryObj ? countryObj.name : card.country_code);
+
+  document.getElementById('fc-country-name').textContent = `${countryName} — Sello: ${category}`;
   document.getElementById('fc-question').textContent = cleanQuestion;
 
   const revealBtn = document.getElementById('btn-reveal-answer');
@@ -744,17 +901,24 @@ function showCard(card) {
     questionBox.classList.add('hidden');
     answerBox.classList.remove('hidden');
 
-    document.getElementById('fc-country-name-ans').textContent = `${card.country_name} — Sello: ${category}`;
+    document.getElementById('fc-country-name-ans').textContent = `${countryName} — Sello: ${category}`;
     document.getElementById('fc-question-dup').textContent = cleanQuestion;
     document.getElementById('fc-answer').textContent = card.answer;
 
-    const gradeButtons = document.querySelectorAll('.grade-buttons button');
+    const gradeButtons = document.querySelectorAll('.grade-buttons button:not(#btn-grade-ignore)');
     gradeButtons.forEach(btn => {
       btn.onclick = async () => {
         const grade = parseInt(btn.getAttribute('data-grade'));
         await submitReview(card.id, grade);
       };
     });
+
+    const btnIgnore = document.getElementById('btn-grade-ignore');
+    if (btnIgnore) {
+      btnIgnore.onclick = async () => {
+        await submitIgnore(card.id);
+      };
+    }
   };
 }
 
@@ -770,12 +934,35 @@ async function submitReview(cardId, grade) {
     if (currentCardIndex < pendingCards.length) {
       showCard(pendingCards[currentCardIndex]);
     } else {
+      isSingleCardSession = false; // Sesión terminada
       await loadPendingCards();
       resetFlashcardState();
       await loadPassport();
     }
   } catch (err) {
     console.error('Error al subir el repaso de tarjeta:', err);
+  }
+}
+
+async function submitIgnore(cardId) {
+  try {
+    const response = await fetch(`${API_URL}/ignore`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cardId })
+    });
+    await response.json();
+    currentCardIndex++;
+    if (currentCardIndex < pendingCards.length) {
+      showCard(pendingCards[currentCardIndex]);
+    } else {
+      isSingleCardSession = false; // Sesión terminada
+      await loadPendingCards();
+      resetFlashcardState();
+      await loadPassport();
+    }
+  } catch (err) {
+    console.error('Error al ignorar la tarjeta:', err);
   }
 }
 

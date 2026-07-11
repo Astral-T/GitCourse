@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS learning_cards (
     interval INTEGER DEFAULT 1,         -- Intervalo en días para el próximo repaso
     ease_factor NUMERIC(4, 2) DEFAULT 2.50, -- Factor de facilidad (SM-2)
     last_reviewed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    next_review TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    next_review TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ignored BOOLEAN DEFAULT FALSE
 );
 
 -- 4. Tabla de Caché de Noticias (Evita recargas excesivas y filtra en backend)
@@ -71,3 +72,6 @@ CREATE TABLE IF NOT EXISTS user_portfolio (
     average_buy_price NUMERIC(15, 4) DEFAULT 0.0000,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 7. Migraciones / Modificaciones Posteriores
+ALTER TABLE learning_cards ADD COLUMN IF NOT EXISTS ignored BOOLEAN DEFAULT FALSE;
