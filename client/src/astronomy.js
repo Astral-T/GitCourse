@@ -1434,6 +1434,11 @@ export function initStellarViewer(canvas, onUpdateCoords) {
   let currentDate = new Date();
   currentDate.setHours(22, 0, 0); // Establecer temporalmente a las 10 PM para simular cielo nocturno completo
 
+  // Estado del giroscopio
+  let isGyroActive = true;
+  let targetAz = null;
+  let targetAlt = null;
+
   // Posición del mouse en laptop
   let mouseX = -1000;
   let mouseY = -1000;
@@ -1484,6 +1489,15 @@ export function initStellarViewer(canvas, onUpdateCoords) {
 
     ctx.clearRect(0, 0, width, height);
 
+    // Si el giroscopio está activo y tenemos datos de sensores, aplicar lerp suave
+    if (isGyroActive && targetAz !== null && targetAlt !== null) {
+      let diffAz = targetAz - viewAz;
+      // Normalizar diferencia de azimut para interpolar por el camino más corto
+      diffAz = ((diffAz + 180) % 360 + 360) % 360 - 180;
+      viewAz = (viewAz + diffAz * 0.1 + 360) % 360;
+      viewAlt = viewAlt + (targetAlt - viewAlt) * 0.1;
+    }
+
     const azChanged = lastRenderAz !== null && Math.abs(viewAz - lastRenderAz) > 0.001;
     const altChanged = lastRenderAlt !== null && Math.abs(viewAlt - lastRenderAlt) > 0.001;
     const fovChanged = lastRenderFov !== null && Math.abs(viewFov - lastRenderFov) > 0.001;
@@ -1519,7 +1533,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     if (viewAlt <= 0 || isNaN(viewAlt)) {
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, width, height);
-      onUpdateCoords(viewAz, isNaN(viewAlt) ? 0 : viewAlt);
+      onUpdateCoords(viewAz, isNaN(viewAlt) ? 0 : viewAlt, isGyroActive);
       animationFrameId = requestAnimationFrame(render);
       return;
     }
@@ -2056,12 +2070,13 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       ctx.shadowBlur = 0; // reset
     }
 
-    onUpdateCoords(viewAz, viewAlt);
+    onUpdateCoords(viewAz, viewAlt, isGyroActive);
     animationFrameId = requestAnimationFrame(render);
   }
 
   // Controladores de arrastre con mouse
   const handleStart = (clientX, clientY) => {
+    isGyroActive = false; // Desactivar giroscopio de inmediato al tocar/arrastrar
     isDragging = true;
     startX = clientX;
     startY = clientY;
@@ -2098,6 +2113,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
 
   // Manejo del scroll del ratón para Zoom (Laptop)
   const handleWheel = e => {
+    isGyroActive = false; // Desactivar giroscopio
     e.preventDefault();
     clearQuietTimer();
     const zoomSpeed = 0.04;
@@ -2164,6 +2180,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
 
   // Soporte táctil móvil (con Pinch-to-Zoom Híbrido y multitáctil geométrico acumulativo)
   canvas.addEventListener('touchstart', (e) => {
+    isGyroActive = false; // Desactivar giroscopio
     isUsingTouch = true;
     mouseX = -1000;
     mouseY = -1000;
@@ -2216,6 +2233,82 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     handleEnd();
   });
 
+  // Manejo de la orientación física del dispositivo (Giroscopio)
+  const handleDeviceOrientation = (e) => {
+    if (!animationFrameId) return; // Solo procesar si el visor está activo/renderizando
+    if (e.beta === null || e.gamma === null) return;
+
+    const alpha = e.alpha || 0;
+    const beta = e.beta;
+    const gamma = e.gamma;
+
+    let rawAlt = 0;
+    let rawAz = 0;
+
+    // Intentar usar la matriz de rotación 3D nativa para un comportamiento de ventana AR impecable
+    // Esto calcula el vector de dirección de la cámara ignorando la rotación sobre el eje Z (volante)
+    const degToRad = Math.PI / 180;
+    const radToDeg = 180 / Math.PI;
+
+    const _a = alpha * degToRad;
+    const _b = beta * degToRad;
+    const _g = gamma * degToRad;
+
+    const cA = Math.cos(_a), sA = Math.sin(_a);
+    const cB = Math.cos(_b), sB = Math.sin(_b);
+    const cG = Math.cos(_g), sG = Math.sin(_g);
+
+    // Vector de dirección de la cámara (perpendicular a la pantalla)
+    let vx = -cA * sG - sA * sB * cG;
+    let vy = -sA * sG + cA * sB * cG;
+    let vz = -cB * cG;
+
+    // Detectar orientación de pantalla para compensación
+    let screenAngle = 0;
+    if (window.screen && window.screen.orientation) {
+      screenAngle = window.screen.orientation.angle || 0;
+    } else if (typeof window.orientation !== 'undefined') {
+      screenAngle = window.orientation;
+    } else {
+      // Fallback si no está disponible la API: asumir 90 si es horizontal
+      screenAngle = window.innerWidth > window.innerHeight ? 90 : 0;
+    }
+
+    const screenRad = screenAngle * degToRad;
+    const cS = Math.cos(screenRad), sS = Math.sin(screenRad);
+
+    // Alinear con la orientación visual en pantalla
+    const rx = vx * cS - vy * sS;
+    const ry = vx * sS + vy * cS;
+    const rz = vz;
+
+    rawAlt = Math.asin(rz) * radToDeg;
+    rawAz = (Math.atan2(rx, ry) * radToDeg + 360) % 360;
+
+    // Si la matriz da un resultado inválido (NaN), usar el cruce de Euler estricto para postura de escudo/visor
+    if (isNaN(rawAlt) || isNaN(rawAz)) {
+      // Cruce de Euler estricto para postura horizontal de escudo:
+      // - beta controla el paneo horizontal (Azimut)
+      // - gamma controla la inclinación vertical (Altitud)
+      rawAz = (-beta + 360) % 360;
+      rawAlt = 90 - Math.abs(gamma);
+    }
+
+    // Limitar altitud a un rango lógico [-15, 90]
+    if (rawAlt < -15) rawAlt = -15;
+    if (rawAlt > 90) rawAlt = 90;
+
+    // Registrar en consola para verificar impacto directo del simulador Sensors de Chrome sin inundar
+    if (targetAz === null || Math.abs(targetAz - rawAz) > 0.2 || Math.abs(targetAlt - rawAlt) > 0.2) {
+      console.log(`[GIROSCOPIO AR] Sensors -> alpha=${Math.round(alpha)}°, beta=${Math.round(beta)}°, gamma=${Math.round(gamma)}° => Mapeado -> Azimut=${Math.round(rawAz)}°, Altitud=${Math.round(rawAlt)}°`);
+    }
+
+    targetAz = rawAz;
+    targetAlt = rawAlt;
+  };
+
+  window.addEventListener('deviceorientation', handleDeviceOrientation, true);
+
   return {
     start: (initAz, initAlt) => {
       viewAz = initAz;
@@ -2237,6 +2330,12 @@ export function initStellarViewer(canvas, onUpdateCoords) {
         clearTimeout(window.labelsTimeout);
         window.labelsTimeout = null;
       }
+      
+      // Reiniciar estado de giroscopio
+      isGyroActive = true;
+      targetAz = null;
+      targetAlt = null;
+
       if (!animationFrameId) render();
     },
     stop: () => {
@@ -2249,7 +2348,15 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     setDateTime: (date) => {
       currentDate = date;
     },
-    getCoordinates: () => ({ az: viewAz, alt: viewAlt })
+    getCoordinates: () => ({ az: viewAz, alt: viewAlt }),
+    isGyroActive: () => isGyroActive,
+    setGyroActive: (active) => {
+      isGyroActive = active;
+      if (active) {
+        targetAz = null;
+        targetAlt = null;
+      }
+    }
   };
 }
 

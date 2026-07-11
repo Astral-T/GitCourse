@@ -232,18 +232,37 @@ function initAstronomy() {
   // Integración y Eventos del Visor Estelar
   let stellarController = null;
   if (btnStellar && stellarOverlay && stellarCanvas && btnCloseStellar) {
-    stellarController = initStellarViewer(stellarCanvas, (az, alt) => {
+    stellarController = initStellarViewer(stellarCanvas, (az, alt, isGyro) => {
       if (hudAzimuth) hudAzimuth.textContent = Math.round(az);
       if (hudAltitude) hudAltitude.textContent = Math.round(alt);
+      
+      // Actualizar estado visual del botón del giroscopio
+      const btnGyro = document.getElementById('btn-activate-stellar-gyro');
+      if (btnGyro) {
+        if (isGyro) {
+          btnGyro.classList.add('active');
+        } else {
+          btnGyro.classList.remove('active');
+        }
+      }
     });
 
-    btnStellar.addEventListener('click', () => {
+    btnStellar.addEventListener('click', async () => {
       const now = new Date();
       const hour = now.getHours() + now.getMinutes() / 60;
       const isNightTime = window.bypassNightCheck || (hour >= 18.5 || hour < 6.0);
       if (!isNightTime) {
         alert('El Visor Estelar solo está disponible de 6:30 PM a 6:00 AM.');
         return;
+      }
+
+      // Solicitar permiso de sensores al activar el visor (UX fluida en móviles)
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          await DeviceOrientationEvent.requestPermission();
+        } catch (err) {
+          console.log('Permiso denegado o error de sensores al abrir visor:', err);
+        }
       }
 
       stellarOverlay.classList.remove('hidden');
@@ -261,6 +280,28 @@ function initAstronomy() {
       altitudeSlider.value = Math.round(finalCoords.alt);
       updateSky();
     });
+
+    // Configurar listener para el botón flotante del giroscopio
+    const btnGyro = document.getElementById('btn-activate-stellar-gyro');
+    if (btnGyro) {
+      btnGyro.addEventListener('click', async () => {
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          try {
+            const permissionState = await DeviceOrientationEvent.requestPermission();
+            if (permissionState === 'granted') {
+              stellarController.setGyroActive(true);
+            } else {
+              alert('Permiso de sensores denegado.');
+            }
+          } catch (err) {
+            console.error('Error pidiendo permiso de sensores:', err);
+          }
+        } else {
+          // Navegadores que no requieren permiso explícito o localhost
+          stellarController.setGyroActive(true);
+        }
+      });
+    }
   }
 
   window.addEventListener('resize', handleResize);
