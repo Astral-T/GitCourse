@@ -1,6 +1,7 @@
 // Módulo del Feed de Noticias Científicas y Tecnológicas
 
-const API_URL = 'http://localhost:3000/api/news';
+const host = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : '192.168.1.5';
+const API_URL = `http://${host}:3000/api/news`;
 let allNews = [];
 let currentCategory = 'ALL';
 

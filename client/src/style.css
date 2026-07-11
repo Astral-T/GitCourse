@@ -2491,6 +2491,37 @@ body.globe-fullscreen-active #globe-3d {
    OPTIMIZACIÓN RESPONSIVA Y UX MÓVIL (PANTALLAS VERTICALES <= 768PX)
    ========================================================================== */
 @media (max-width: 768px) {
+  /* Solución radical de contención de desborde horizontal */
+  body, 
+  html,
+  #root,
+  .app-container,
+  .tab-content,
+  #tab-trading,
+  .trading-main-row,
+  .trading-chart-card,
+  .mobile-chart-viewport,
+  .trading-layout-container,
+  .trading-chart-wrapper {
+      max-width: 100vw !important;
+      overflow-x: hidden !important;
+      position: relative !important;
+      box-sizing: border-box !important;
+  }
+
+  /* Excepción controlada para permitir el scroll horizontal interno de la gráfica */
+  .trading-chart-wrapper {
+      overflow-x: auto !important;
+  }
+
+  /* Contenedor específico del gráfico de ApexCharts */
+  #financial-candles-chart {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow: hidden !important;
+      box-sizing: border-box !important;
+  }
+
   /* Header y Barra Superior */
   .app-header {
     padding: 10px 16px;

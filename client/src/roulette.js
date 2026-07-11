@@ -31,7 +31,8 @@ let currentAngle = 0;
 let isSpinning = false;
 let pendingCards = [];
 let currentCardIndex = 0;
-const API_URL = 'http://localhost:3000/api/learning';
+const host = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : '192.168.1.5';
+const API_URL = `http://${host}:3000/api/learning`;
 
 // Locks de control para la ruleta
 const useRef = (initialValue) => ({ current: initialValue });
