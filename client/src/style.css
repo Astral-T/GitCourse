@@ -3022,3 +3022,58 @@ body, html, .trading-layout-container {
   color: var(--red-neon);
 }
 
+/* Ajustes responsivos para la cabecera (header) en móvil - Columna limpia sin superposiciones */
+@media (max-width: 768px) {
+  .header-logo, 
+  .header-logo h1,
+  .app-nav,
+  .nav-tab,
+  .header-right-group {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+    transform: none !important;
+  }
+
+  .app-header {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 12px !important;
+    padding: 15px 5px !important;
+    height: auto !important; /* Quita altos fijos que aplasten el contenido */
+  }
+
+  /* Los enlaces se agrupan en fila con wrap para que quepan en móviles */
+  .app-nav {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+
+  .nav-tab {
+    font-size: 11px !important;
+    padding: 6px 10px !important;
+    width: auto !important;
+  }
+
+  .header-right-group {
+    display: flex !important;
+    justify-content: center !important;
+    width: 100% !important;
+    margin-top: 5px !important;
+  }
+
+  /* Ajusta el contenido principal para que empiece debajo del header */
+  .app-container, .main-content {
+    margin-top: 20px !important;
+    padding-top: 10px !important;
+  }
+}
+
+

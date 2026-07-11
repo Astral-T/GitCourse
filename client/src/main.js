@@ -495,9 +495,6 @@ function initAuthSession() {
 
   if (btnResetDemo) {
     btnResetDemo.addEventListener('click', async () => {
-      const confirmReset = confirm('¿Estás seguro de que deseas reiniciar los datos de prueba y transacciones simuladas?');
-      if (!confirmReset) return;
-
       try {
         btnResetDemo.disabled = true;
         btnResetDemo.textContent = '⏳ Limpiando...';
@@ -506,18 +503,44 @@ function initAuthSession() {
         const data = await res.json();
         
         if (res.ok && data.success) {
-          alert('✅ ' + data.message);
           refreshLearningData();
           if (currentTab === 'trading') {
             loadPortfolio();
             loadCandlesChart();
           }
+
+          // Mostrar mensaje de feedback inline temporal
+          const feedbackMsg = document.getElementById('reset-feedback-msg');
+          if (feedbackMsg) {
+            feedbackMsg.style.color = 'var(--green-neon)';
+            feedbackMsg.textContent = 'Datos restablecidos con éxito';
+            feedbackMsg.style.display = 'inline';
+            setTimeout(() => {
+              feedbackMsg.style.display = 'none';
+            }, 3000);
+          }
         } else {
-          alert('❌ Error al reiniciar los datos: ' + (data.error || 'Desconocido'));
+          const feedbackMsg = document.getElementById('reset-feedback-msg');
+          if (feedbackMsg) {
+            feedbackMsg.style.color = 'var(--red-neon)';
+            feedbackMsg.textContent = 'Error al restablecer';
+            feedbackMsg.style.display = 'inline';
+            setTimeout(() => {
+              feedbackMsg.style.display = 'none';
+            }, 3000);
+          }
         }
       } catch (err) {
         console.error('Error al llamar reset-demo:', err);
-        alert('❌ Error de conexión al servidor al intentar resetear.');
+        const feedbackMsg = document.getElementById('reset-feedback-msg');
+        if (feedbackMsg) {
+          feedbackMsg.style.color = 'var(--red-neon)';
+          feedbackMsg.textContent = 'Error de conexión';
+          feedbackMsg.style.display = 'inline';
+          setTimeout(() => {
+            feedbackMsg.style.display = 'none';
+          }, 3000);
+        }
       } finally {
         btnResetDemo.disabled = false;
         btnResetDemo.textContent = '🧹 Reset Demo';
