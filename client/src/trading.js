@@ -13,6 +13,7 @@ let activeAsset = {
 let activeOrderAction = 'BUY'; // 'BUY' o 'SELL'
 let activeInterval = '1d'; // '15m' | '1h' | '1d'
 let chartInstance = null;
+let isInspectModeActive = false;
 
 // 1. OBTENER VELAS HISTÓRICAS Y DIBUJAR GRÁFICO
 export async function loadCandlesChart() {
@@ -134,7 +135,32 @@ export async function loadCandlesChart() {
         }
       },
       tooltip: {
-        enabled: false
+        enabled: true,
+        shared: false,
+        trueNoData: false,
+        custom: function({ series, seriesIndex, dataPointIndex, w }) {
+          if (!isInspectModeActive) return '';
+          
+          const rawData = w.config.series[seriesIndex].data[dataPointIndex];
+          if (!rawData) return '';
+          const ohlc = Array.isArray(rawData) ? rawData : (rawData.y || []);
+          
+          // Actualizar dinámicamente el banner superior
+          const oOpen = document.getElementById('ohlc-open');
+          const oHigh = document.getElementById('ohlc-high');
+          const oLow = document.getElementById('ohlc-low');
+          const oClose = document.getElementById('ohlc-close');
+          
+          if (oOpen && oHigh && oLow && oClose) {
+            oOpen.textContent = ohlc[0] !== undefined ? ohlc[0] : '--';
+            oHigh.textContent = ohlc[1] !== undefined ? ohlc[1] : '--';
+            oLow.textContent = ohlc[2] !== undefined ? ohlc[2] : '--';
+            oClose.textContent = ohlc[3] !== undefined ? ohlc[3] : '--';
+          }
+          
+          // Retornar cadena vacía para no mostrar globo flotante duplicado
+          return '';
+        }
       }
     };
 
@@ -427,6 +453,35 @@ export function initTradingEvents() {
       loadCandlesChart();
     });
   });
+
+  // Alternar el Modo Inspección (para móviles/escritorio)
+  const btnToggleInspect = document.getElementById('btn-toggle-inspect');
+  const ohlcBanner = document.getElementById('trading-ohlc-banner');
+  const chartViewport = document.querySelector('.mobile-chart-viewport');
+
+  if (btnToggleInspect) {
+    btnToggleInspect.addEventListener('click', () => {
+      isInspectModeActive = !isInspectModeActive;
+      btnToggleInspect.classList.toggle('active', isInspectModeActive);
+      
+      if (chartViewport) {
+        chartViewport.classList.toggle('inspect-mode-active', isInspectModeActive);
+      }
+      
+      if (ohlcBanner) {
+        ohlcBanner.classList.toggle('hidden', !isInspectModeActive);
+      }
+      
+      // Si se desactiva, limpiar valores
+      if (!isInspectModeActive) {
+        const ids = ['ohlc-open', 'ohlc-high', 'ohlc-low', 'ohlc-close'];
+        ids.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = '--';
+        });
+      }
+    });
+  }
 }
 
 function renderMobilePricesSidebar(candlesData) {

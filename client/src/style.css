@@ -2139,6 +2139,8 @@ body.globe-fullscreen-active #globe-3d {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  padding-top: max(16px, env(safe-area-inset-top));
+  box-sizing: border-box;
 }
 
 .stellar-viewer-overlay.hidden {
@@ -2158,7 +2160,7 @@ body.globe-fullscreen-active #globe-3d {
 
 .stellar-viewer-close {
   position: fixed !important;
-  top: 25px !important;
+  top: max(16px, env(safe-area-inset-top)) !important;
   right: 25px !important;
   width: 45px !important;
   height: 45px !important;
@@ -2187,7 +2189,7 @@ body.globe-fullscreen-active #globe-3d {
 
 .stellar-viewer-gyro {
   position: fixed !important;
-  top: 25px !important;
+  top: max(16px, env(safe-area-inset-top)) !important;
   left: 25px !important;
   width: 45px !important;
   height: 45px !important;
@@ -2520,6 +2522,20 @@ body.globe-fullscreen-active #globe-3d {
       max-width: 100% !important;
       overflow: hidden !important;
       box-sizing: border-box !important;
+  }
+
+  /* Por defecto en móvil (max-width: 768px), desactivar interacciones del gráfico para permitir scroll */
+  #financial-candles-chart, 
+  .apexcharts-canvas, 
+  .apexcharts-svg {
+    pointer-events: none !important;
+  }
+  
+  /* Cuando está activo el modo inspección, rehabilitamos pointer-events en el gráfico */
+  .inspect-mode-active #financial-candles-chart,
+  .inspect-mode-active .apexcharts-canvas,
+  .inspect-mode-active .apexcharts-svg {
+    pointer-events: auto !important;
   }
 
   /* Header y Barra Superior */
@@ -3142,4 +3158,89 @@ body, html, .trading-layout-container {
   }
 }
 
+/* ==========================================================================
+   ESTILOS COMPLEMENTARIOS: MODO INSPECCIÓN Y BANNER OHLC
+   ========================================================================== */
+
+/* Banner de Inspección OHLC */
+.trading-ohlc-banner {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: rgba(12, 15, 18, 0.9) !important;
+  border: 1px dashed rgba(0, 255, 204, 0.4) !important;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  color: var(--green-neon, #39ff14) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6), inset 0 0 10px rgba(0, 255, 204, 0.05);
+  width: 100%;
+  box-sizing: border-box;
+  z-index: 5;
+  position: relative;
+}
+
+.trading-ohlc-banner.hidden {
+  display: none !important;
+}
+
+.ohlc-item {
+  display: flex;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.ohlc-item span {
+  color: #ffffff !important;
+  text-shadow: 0 0 8px rgba(0, 255, 204, 0.6);
+}
+
+/* Botón flotante para alternar el modo inspección */
+.btn-inspect-mode {
+  position: absolute;
+  right: 15px;
+  top: 15px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(12, 13, 22, 0.85);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  color: var(--text-secondary, #b2b5be);
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-inspect-mode:hover {
+  border-color: var(--green-neon, #39ff14);
+  color: #ffffff;
+}
+
+.btn-inspect-mode.active {
+  border-color: var(--green-neon, #39ff14) !important;
+  color: var(--green-neon, #39ff14) !important;
+  box-shadow: 0 0 12px rgba(57, 255, 20, 0.6) !important;
+  background: rgba(57, 255, 20, 0.15) !important;
+}
+
+/* Optimización responsiva para el banner de inspección en pantallas súper angostas */
+@media (max-width: 480px) {
+  .trading-ohlc-banner {
+    font-size: 11px !important;
+    padding: 6px !important;
+    justify-content: space-between !important;
+    gap: 4px !important;
+  }
+  
+  .ohlc-item {
+    gap: 2px !important;
+  }
+}
 

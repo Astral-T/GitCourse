@@ -331,8 +331,18 @@
           </div>
           </div> <!-- Closes chart-header -->
           
+          <!-- Banner de Inspección OHLC (para móviles y escritorio) -->
+          <div class="trading-ohlc-banner hidden" id="trading-ohlc-banner">
+            <div class="ohlc-item">O: <span id="ohlc-open">--</span></div>
+            <div class="ohlc-item">H: <span id="ohlc-high">--</span></div>
+            <div class="ohlc-item">L: <span id="ohlc-low">--</span></div>
+            <div class="ohlc-item">C: <span id="ohlc-close">--</span></div>
+          </div>
+          
           <!-- Contenedor del gráfico financiero híbrido -->
           <div class="mobile-chart-viewport">
+            <!-- Botón flotante para alternar el modo inspección -->
+            <button class="btn-inspect-mode" id="btn-toggle-inspect" title="Modo Inspección">⌖</button>
             <div class="trading-layout-container">
               <div id="mobile-fixed-prices-axis" class="fixed-price-column hidden"></div>
               
