@@ -2139,7 +2139,8 @@ body.globe-fullscreen-active #globe-3d {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  padding-top: max(16px, env(safe-area-inset-top));
+  padding-top: calc(env(safe-area-inset-top, 20px) + 16px) !important;
+  margin-top: 32px !important;
   box-sizing: border-box;
 }
 
@@ -2159,37 +2160,14 @@ body.globe-fullscreen-active #globe-3d {
 }
 
 .stellar-viewer-close {
-  position: fixed !important;
-  top: max(16px, env(safe-area-inset-top)) !important;
-  right: 25px !important;
-  width: 45px !important;
-  height: 45px !important;
-  border-radius: 50% !important;
-  background: rgba(12, 13, 24, 0.9) !important;
-  border: 1.5px solid rgba(0, 229, 255, 0.4) !important;
-  color: var(--cyan-neon) !important;
-  font-size: 24px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  cursor: pointer !important;
-  z-index: 1000000 !important;
-  box-shadow: 0 0 15px rgba(0, 229, 255, 0.25) !important;
-  transition: var(--transition-fast) !important;
-  padding: 0 !important;
-  line-height: 1 !important;
-}
-
-.stellar-viewer-close:hover {
-  background: rgba(0, 229, 255, 0.15) !important;
-  border-color: var(--cyan-neon) !important;
-  box-shadow: 0 0 25px rgba(0, 229, 255, 0.5) !important;
-  transform: scale(1.08) !important;
+  display: none !important;
 }
 
 .stellar-viewer-gyro {
   position: fixed !important;
-  top: max(16px, env(safe-area-inset-top)) !important;
+  top: max(20px, env(safe-area-inset-top, 20px)) !important;
+  padding-top: calc(env(safe-area-inset-top, 20px) + 16px) !important;
+  margin-top: 32px !important;
   left: 25px !important;
   width: 45px !important;
   height: 45px !important;
@@ -2205,7 +2183,6 @@ body.globe-fullscreen-active #globe-3d {
   z-index: 1000000 !important;
   box-shadow: 0 0 15px rgba(0, 229, 255, 0.25) !important;
   transition: var(--transition-fast) !important;
-  padding: 0 !important;
   line-height: 1 !important;
 }
 
@@ -3230,17 +3207,22 @@ body, html, .trading-layout-container {
   background: rgba(57, 255, 20, 0.15) !important;
 }
 
-/* Optimización responsiva para el banner de inspección en pantallas súper angostas */
-@media (max-width: 480px) {
+/* Optimización responsiva para el banner de inspección en pantallas de menos de 600px de ancho */
+@media (max-width: 600px) {
   .trading-ohlc-banner {
-    font-size: 11px !important;
-    padding: 6px !important;
+    font-size: 0.75rem !important; /* 11px */
+    padding: 6px 8px !important;
     justify-content: space-between !important;
     gap: 4px !important;
   }
   
   .ohlc-item {
-    gap: 2px !important;
+    gap: 3px !important;
+    font-size: 0.75rem !important;
+  }
+
+  .ohlc-item span {
+    font-size: 0.75rem !important;
   }
 }
 

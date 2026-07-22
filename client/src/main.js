@@ -34,7 +34,7 @@ import {
   initTradingEvents 
 } from './trading.js';
 
-const BACKEND_URL = typeof window !== 'undefined' && window.location.hostname ? `http://${window.location.hostname}:3000` : 'http://192.168.1.5:3000';
+const BACKEND_URL = '';
 let currentTab = 'learning';
 let isGyroActive = false;
 
@@ -232,10 +232,23 @@ function initAstronomy() {
   // Integración y Eventos del Visor Estelar
   let stellarController = null;
   if (btnStellar && stellarOverlay && stellarCanvas && btnCloseStellar) {
-    stellarController = initStellarViewer(stellarCanvas, (az, alt, isGyro) => {
+    stellarController = initStellarViewer(stellarCanvas, (az, alt, isGyro, gyroRaw) => {
       if (hudAzimuth) hudAzimuth.textContent = Math.round(az);
       if (hudAltitude) hudAltitude.textContent = Math.round(alt);
       
+      const hudGyroRaw = document.getElementById('stellar-hud-gyro-raw');
+      if (hudGyroRaw) {
+        if (isGyro && gyroRaw && gyroRaw.alpha !== null && gyroRaw.beta !== null) {
+          hudGyroRaw.style.display = 'block';
+          hudGyroRaw.textContent = `GIROSCOPIO: α: ${Math.round(gyroRaw.alpha)}° | β: ${Math.round(gyroRaw.beta)}° | γ: ${Math.round(gyroRaw.gamma || 0)}°`;
+        } else if (isGyro) {
+          hudGyroRaw.style.display = 'block';
+          hudGyroRaw.textContent = 'GIROSCOPIO: Esperando ángulos de orientación...';
+        } else {
+          hudGyroRaw.style.display = 'none';
+        }
+      }
+
       // Actualizar estado visual del botón del giroscopio
       const btnGyro = document.getElementById('btn-activate-stellar-gyro');
       if (btnGyro) {
@@ -256,51 +269,92 @@ function initAstronomy() {
         return;
       }
 
-      // Solicitar permiso de sensores al activar el visor (UX fluida en móviles)
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        try {
-          await DeviceOrientationEvent.requestPermission();
-        } catch (err) {
-          console.log('Permiso denegado o error de sensores al abrir visor:', err);
-        }
-      }
-
       stellarOverlay.classList.remove('hidden');
       const currentAz = parseFloat(azimuthSlider.value);
       const currentAlt = parseFloat(altitudeSlider.value);
       stellarController.start(currentAz, currentAlt);
     });
 
-    btnCloseStellar.addEventListener('click', () => {
-      stellarController.stop();
-      stellarOverlay.classList.add('hidden');
-      
-      const finalCoords = stellarController.getCoordinates();
-      azimuthSlider.value = Math.round(finalCoords.az);
-      altitudeSlider.value = Math.round(finalCoords.alt);
-      updateSky();
+    function closeStellarViewer() {
+      if (stellarOverlay && !stellarOverlay.classList.contains('hidden')) {
+        stellarController.stop();
+        stellarOverlay.classList.add('hidden');
+        
+        const finalCoords = stellarController.getCoordinates();
+        azimuthSlider.value = Math.round(finalCoords.az);
+        altitudeSlider.value = Math.round(finalCoords.alt);
+        updateSky();
+      }
+    }
+
+    if (btnCloseStellar) {
+      btnCloseStellar.addEventListener('click', closeStellarViewer);
+    }
+
+    // Atajo de Teclado: Tecla PageUp (RePág) o Escape para salir del visor estelar
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'PageUp' || e.key === 'Escape') {
+        closeStellarViewer();
+      }
     });
 
-    // Configurar listener para el botón flotante del giroscopio
+    // Detección de Gestos Táctiles (Swipe hacia abajo desde el margen superior para cerrar)
+    let touchStartY = 0;
+    let touchStartX = 0;
+
+    stellarOverlay.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches.length === 1) {
+        touchStartY = e.touches[0].clientY;
+        touchStartX = e.touches[0].clientX;
+      }
+    }, { passive: true });
+
+    stellarOverlay.addEventListener('touchend', (e) => {
+      if (e.changedTouches && e.changedTouches.length === 1) {
+        const deltaY = e.changedTouches[0].clientY - touchStartY;
+        const deltaX = Math.abs(e.changedTouches[0].clientX - touchStartX);
+
+        // Si se desliza hacia abajo desde el margen superior (< 120px) o hace un swipe vertical largo (> 120px)
+        const isTopEdgeSwipe = touchStartY < 120 && deltaY > 50;
+        const isVerticalDownSwipe = deltaY > 120 && deltaX < 80;
+
+        if (isTopEdgeSwipe || isVerticalDownSwipe) {
+          closeStellarViewer();
+        }
+      }
+    }, { passive: true });
+
+    // Manejador explícito de giroscopio multiplataforma por clic en botón
+    async function activarGiroscopio() {
+      try {
+        // Caso iOS 13+
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const permissionState = await DeviceOrientationEvent.requestPermission();
+          if (permissionState === 'granted') {
+            if (stellarController) stellarController.setGyroActive(true);
+            alert('Giroscopio activado con éxito');
+          } else {
+            if (stellarController) stellarController.setGyroActive(false);
+            alert('Permiso de giroscopio denegado en el dispositivo');
+          }
+        } else if ('DeviceOrientationEvent' in window) {
+          // Caso Android y navegadores estándar
+          if (stellarController) stellarController.setGyroActive(true);
+          alert('Giroscopio activado');
+        } else {
+          if (stellarController) stellarController.setGyroActive(false);
+          alert('Tu dispositivo o navegador no soporta el sensor de orientación');
+        }
+      } catch (error) {
+        console.error('Error al solicitar giroscopio:', error);
+        if (stellarController) stellarController.setGyroActive(false);
+        alert('Error al conectar sensores: ' + error.message);
+      }
+    }
+
     const btnGyro = document.getElementById('btn-activate-stellar-gyro');
     if (btnGyro) {
-      btnGyro.addEventListener('click', async () => {
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          try {
-            const permissionState = await DeviceOrientationEvent.requestPermission();
-            if (permissionState === 'granted') {
-              stellarController.setGyroActive(true);
-            } else {
-              alert('Permiso de sensores denegado.');
-            }
-          } catch (err) {
-            console.error('Error pidiendo permiso de sensores:', err);
-          }
-        } else {
-          // Navegadores que no requieren permiso explícito o localhost
-          stellarController.setGyroActive(true);
-        }
-      });
+      btnGyro.addEventListener('click', activarGiroscopio);
     }
   }
 

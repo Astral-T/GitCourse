@@ -31,8 +31,7 @@ let currentAngle = 0;
 let isSpinning = false;
 let pendingCards = [];
 let currentCardIndex = 0;
-const host = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : '192.168.1.5';
-const API_URL = `http://${host}:3000/api/learning`;
+const API_URL = '/api/learning';
 
 // Locks de control para la ruleta
 const useRef = (initialValue) => ({ current: initialValue });
@@ -322,27 +321,34 @@ function createTextSprite(text, color) {
   canvas.height = 64;
   const ctx = canvas.getContext('2d');
   
-  ctx.fillStyle = 'rgba(12, 18, 38, 0.85)';
+  ctx.fillStyle = 'rgba(12, 18, 38, 0.9)';
   if (ctx.roundRect) {
-    ctx.roundRect(8, 8, 240, 48, 10);
+    ctx.roundRect(4, 4, 248, 56, 12);
   } else {
-    ctx.fillRect(8, 8, 240, 48);
+    ctx.fillRect(4, 4, 248, 56);
   }
   ctx.fill();
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 3;
   ctx.stroke();
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 20px sans-serif';
+  ctx.font = 'bold 22px "Plus Jakarta Sans", sans-serif, system-ui';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, 128, 32);
 
   const texture = new THREE.CanvasTexture(canvas);
-  const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  texture.needsUpdate = true;
+  const spriteMaterial = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false
+  });
   const sprite = new THREE.Sprite(spriteMaterial);
-  sprite.scale.set(0.65, 0.16, 1);
+  sprite.scale.set(0.7, 0.175, 1);
+  sprite.renderOrder = 100;
   return sprite;
 }
 
@@ -399,7 +405,7 @@ export function initGlobe3D(canvas) {
   globeCountryMarkers = [];
   GLOBE_COUNTRIES.forEach(country => {
     const markerGroup = new THREE.Group();
-    const pos = latLonToVector3(country.lat, country.lon, 2.015);
+    const pos = latLonToVector3(country.lat, country.lon, 2.02);
     markerGroup.position.copy(pos);
 
     // Pin 3D brillante
@@ -407,13 +413,16 @@ export function initGlobe3D(canvas) {
     const pinMat = new THREE.MeshBasicMaterial({ color: country.color });
     const pinMesh = new THREE.Mesh(pinGeo, pinMat);
     pinMesh.userData = { countryCode: country.code, countryName: country.name };
+    pinMesh.renderOrder = 10;
     markerGroup.add(pinMesh);
     globeCountryMarkers.push(pinMesh);
 
-    // Etiqueta flotante 3D
+    // Etiqueta flotante 3D con nombre de país
     const sprite = createTextSprite(country.name, country.color);
-    sprite.position.copy(pos.clone().multiplyScalar(0.08));
+    sprite.position.set(0, 0.09, 0);
+    sprite.userData = { countryCode: country.code, countryName: country.name };
     markerGroup.add(sprite);
+    globeCountryMarkers.push(sprite);
 
     globeEarthMesh.add(markerGroup);
   });
@@ -829,26 +838,30 @@ export async function loadPendingCards() {
     if (isSingleCardSession) {
       updatePendingBadgeCount(1);
     } else {
-      pendingCards = cards;
+      pendingCards = Array.isArray(cards) ? cards : [];
       updatePendingBadge();
     }
-    return cards;
+    return pendingCards;
   } catch (err) {
     console.error('Error al obtener tarjetas pendientes:', err);
+    pendingCards = [];
+    updatePendingBadge();
   }
 }
 
 function updatePendingBadge() {
-  updatePendingBadgeCount(pendingCards.length);
+  const count = Array.isArray(pendingCards) ? pendingCards.length : 0;
+  updatePendingBadgeCount(count);
 }
 
 function updatePendingBadgeCount(count) {
   const badge = document.getElementById('cards-pending-count');
   const btnStart = document.getElementById('btn-start-reviews');
-  if (badge) badge.textContent = `${count} Pendientes`;
+  const safeCount = (typeof count === 'number' && !isNaN(count)) ? count : (Array.isArray(pendingCards) ? pendingCards.length : 0);
+  if (badge) badge.textContent = `${safeCount} Pendientes`;
   if (btnStart) {
-    btnStart.textContent = `Iniciar Repaso (${count})`;
-    btnStart.disabled = count === 0;
+    btnStart.textContent = `Iniciar Repaso (${safeCount})`;
+    btnStart.disabled = safeCount === 0;
   }
 }
 

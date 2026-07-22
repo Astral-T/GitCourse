@@ -1,8 +1,7 @@
 // Módulo de Simulación de Trading y Gráficos Financieros
 import ApexCharts from 'apexcharts';
 
-const host = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : '192.168.1.5';
-const API_URL = `http://${host}:3000/api/trading`;
+const API_URL = '/api/trading';
 
 let activeAsset = {
   symbol: 'BTC',

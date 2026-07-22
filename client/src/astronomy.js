@@ -1438,6 +1438,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
   let isGyroActive = true;
   let targetAz = null;
   let targetAlt = null;
+  let lastGyroRaw = null;
 
   // Posición del mouse en laptop
   let mouseX = -1000;
@@ -2070,7 +2071,7 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       ctx.shadowBlur = 0; // reset
     }
 
-    onUpdateCoords(viewAz, viewAlt, isGyroActive);
+    onUpdateCoords(viewAz, viewAlt, isGyroActive, lastGyroRaw);
     animationFrameId = requestAnimationFrame(render);
   }
 
@@ -2284,13 +2285,15 @@ export function initStellarViewer(canvas, onUpdateCoords) {
 
     rawAlt = Math.asin(rz) * radToDeg;
     rawAz = (Math.atan2(rx, ry) * radToDeg + 360) % 360;
+    // Invertir sentido azimutal para que al mover el teléfono a la derecha la vista gire a la derecha
+    rawAz = (360 - rawAz) % 360;
 
     // Si la matriz da un resultado inválido (NaN), usar el cruce de Euler estricto para postura de escudo/visor
     if (isNaN(rawAlt) || isNaN(rawAz)) {
       // Cruce de Euler estricto para postura horizontal de escudo:
       // - beta controla el paneo horizontal (Azimut)
       // - gamma controla la inclinación vertical (Altitud)
-      rawAz = (-beta + 360) % 360;
+      rawAz = (beta + 360) % 360;
       rawAlt = 90 - Math.abs(gamma);
     }
 
@@ -2298,9 +2301,10 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     if (rawAlt < -15) rawAlt = -15;
     if (rawAlt > 90) rawAlt = 90;
 
-    // Registrar en consola para verificar impacto directo del simulador Sensors de Chrome sin inundar
+    // Registrar en consola para verificar impacto directo del sensor de orientación
+    lastGyroRaw = { alpha, beta, gamma };
     if (targetAz === null || Math.abs(targetAz - rawAz) > 0.2 || Math.abs(targetAlt - rawAlt) > 0.2) {
-      console.log(`[GIROSCOPIO AR] Sensors -> alpha=${Math.round(alpha)}°, beta=${Math.round(beta)}°, gamma=${Math.round(gamma)}° => Mapeado -> Azimut=${Math.round(rawAz)}°, Altitud=${Math.round(rawAlt)}°`);
+      console.log(`[GIROSCOPIO DATA] α=${Math.round(alpha)}°, β=${Math.round(beta)}°, γ=${Math.round(gamma)}° => Mapeado -> Azimut=${Math.round(rawAz)}°, Altitud=${Math.round(rawAlt)}°`);
     }
 
     targetAz = rawAz;
@@ -2355,6 +2359,12 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       if (active) {
         targetAz = null;
         targetAlt = null;
+        try {
+          window.removeEventListener('deviceorientation', handleDeviceOrientation, true);
+          window.addEventListener('deviceorientation', handleDeviceOrientation, true);
+        } catch (err) {
+          console.error('Error registrando listener deviceorientation:', err);
+        }
       }
     }
   };
