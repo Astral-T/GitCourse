@@ -9,19 +9,31 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Prioridad: DATABASE_URL (Supabase / Render / Railway) > variables individuales PG*
-const dbConfig = process.env.DATABASE_URL
-  ? {
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false } // Requerido por Supabase y la mayoría de PaaS
-    }
-  : {
-      user: process.env.PGUSER || 'postgres',
-      password: process.env.PGPASSWORD || 'postgres',
-      host: process.env.PGHOST || 'localhost',
-      port: parseInt(process.env.PGPORT || '5432'),
-      database: process.env.PGDATABASE || 'piloto_curiosidad'
-    };
+// Prioridad estricta: DATABASE_URL (Supabase / Render / Railway) > variables individuales PG*
+let dbConfig;
+
+if (process.env.DATABASE_URL) {
+  // Eliminar variables PG* de process.env para evitar que el paquete 'pg' las combine o utilice
+  delete process.env.PGHOST;
+  delete process.env.PGUSER;
+  delete process.env.PGPASSWORD;
+  delete process.env.PGDATABASE;
+  delete process.env.PGPORT;
+
+  dbConfig = {
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  };
+} else {
+  dbConfig = {
+    user: process.env.PGUSER || 'postgres',
+    password: process.env.PGPASSWORD || 'postgres',
+    host: process.env.PGHOST || 'localhost',
+    port: parseInt(process.env.PGPORT || '5432'),
+    database: process.env.PGDATABASE || 'piloto_curiosidad',
+    ssl: false
+  };
+}
 
 let pool;
 
@@ -29,7 +41,7 @@ export async function initDatabase() {
   pool = new pg.Pool(dbConfig);
 
   const target = process.env.DATABASE_URL
-    ? `(DATABASE_URL) → ${process.env.PGHOST || 'supabase'}`
+    ? `(DATABASE_URL activa en producción)`
     : `${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`;
   console.log(`Conectado a la base de datos Postgres: ${target}`);
 
