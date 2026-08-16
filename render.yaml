@@ -1,0 +1,59 @@
+# render.yaml — Despliegue automático en Render.com
+# Documentación: https://render.com/docs/yaml-spec
+#
+# Arquitectura:
+#   - Web Service (Node.js): sirve la API /api/*
+#   - Static Site: sirve el frontend compilado de Vite
+#
+# Instrucciones de uso:
+#   1. Sube el repo a GitHub/GitLab
+#   2. En Render → New → Blueprint → conecta el repo
+#   3. Render detectará este archivo y creará ambos servicios automáticamente
+#   4. Configura las variables de entorno secretas en el dashboard de Render
+#      (DATABASE_URL, ALLOWED_ORIGIN, etc.) — NO las subas al repo
+
+services:
+  # ── Backend API (Node.js / Express) ────────────────────────────────────────
+  - type: web
+    name: piloto-antigravity-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free               # Cambia a 'starter' si necesitas no dormir en inactividad
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      # Variables secretas — configúralas manualmente en el dashboard de Render:
+      # DATABASE_URL     → cadena de conexión completa de Supabase
+      # ALLOWED_ORIGIN   → URL pública del frontend (ej: https://piloto-antigravity.onrender.com)
+      - key: DATABASE_URL
+        sync: false          # 'sync: false' = Render pide el valor al crear, no lo expone en YAML
+      - key: ALLOWED_ORIGIN
+        sync: false
+
+  # ── Frontend PWA (Vite / Static Site) ─────────────────────────────────────
+  - type: web
+    name: piloto-antigravity
+    runtime: static
+    rootDir: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    plan: free
+    autoDeploy: true
+    # SPA fallback: todas las rutas no encontradas vuelven a index.html
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      # Service Worker y PWA requieren HTTPS — Render lo provee automáticamente
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache
+      - path: /manifest.json
+        name: Cache-Control
+        value: no-cache

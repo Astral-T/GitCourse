@@ -12,8 +12,26 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Orígenes permitidos: producción (ALLOWED_ORIGIN) + desarrollo local
+const allowedOrigins = [
+  process.env.ALLOWED_ORIGIN,          // Ej: https://piloto-antigravity.onrender.com
+  'http://localhost:5174',
+  'http://localhost:5173',
+  'http://localhost:3000',
+].filter(Boolean); // elimina entradas undefined si la var no está definida
+
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permitir peticiones sin origen (curl, Postman, SSR) y orígenes en lista blanca
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: origen no permitido → ${origin}`));
+    }
+  },
+  credentials: true
+}));
 app.use(express.json());
 
 // Endpoint de Salud
@@ -36,10 +54,12 @@ async function startServer() {
   try {
     console.log('Inicializando servidor...');
     await db.initDatabase();
-    
-    app.listen(PORT, () => {
+
+    // Escuchar en 0.0.0.0 para ser accesible en entornos cloud (Render, Railway, etc.)
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`====================================================`);
-      console.log(` Servidor ejecutándose en: http://localhost:${PORT}`);
+      console.log(` Servidor ejecutándose en: http://0.0.0.0:${PORT}`);
+      console.log(` Orígenes CORS permitidos: ${allowedOrigins.join(', ')}`);
       console.log(`====================================================`);
     });
   } catch (err) {

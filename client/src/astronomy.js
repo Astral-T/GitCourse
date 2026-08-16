@@ -1530,8 +1530,8 @@ export function initStellarViewer(canvas, onUpdateCoords) {
       return;
     }
 
-    // Regla 4: Si elevación es <= 0, pantalla negra absoluta (suelo bloquea la vista)
-    if (viewAlt <= 0 || isNaN(viewAlt)) {
+    // Regla 4: Si elevación es <= -15, pantalla negra absoluta (suelo bloquea la vista)
+    if (viewAlt <= -15 || isNaN(viewAlt)) {
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, width, height);
       onUpdateCoords(viewAz, isNaN(viewAlt) ? 0 : viewAlt, isGyroActive);

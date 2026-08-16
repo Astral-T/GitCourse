@@ -9,26 +9,34 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const dbConfig = {
-  user: process.env.PGUSER || 'postgres',
-  password: process.env.PGPASSWORD || 'postgres',
-  host: process.env.PGHOST || 'localhost',
-  port: parseInt(process.env.PGPORT || '5432'),
-  database: process.env.PGDATABASE || 'piloto_curiosidad'
-};
+// Prioridad: DATABASE_URL (Supabase / Render / Railway) > variables individuales PG*
+const dbConfig = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false } // Requerido por Supabase y la mayoría de PaaS
+    }
+  : {
+      user: process.env.PGUSER || 'postgres',
+      password: process.env.PGPASSWORD || 'postgres',
+      host: process.env.PGHOST || 'localhost',
+      port: parseInt(process.env.PGPORT || '5432'),
+      database: process.env.PGDATABASE || 'piloto_curiosidad'
+    };
 
 let pool;
 
 export async function initDatabase() {
-  // Conectar al pool principal apuntando a la base de datos
   pool = new pg.Pool(dbConfig);
-  console.log(`Conectado a la base de datos Postgres: ${dbConfig.database}`);
+
+  const target = process.env.DATABASE_URL
+    ? `(DATABASE_URL) → ${process.env.PGHOST || 'supabase'}`
+    : `${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`;
+  console.log(`Conectado a la base de datos Postgres: ${target}`);
 
   // Inicializar las tablas leyendo init.sql
   try {
     const sqlPath = path.join(__dirname, 'db', 'init.sql');
     const sql = fs.readFileSync(sqlPath, 'utf8');
-    
     await pool.query(sql);
     console.log('Tablas inicializadas correctamente desde init.sql');
   } catch (err) {
