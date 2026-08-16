@@ -269,6 +269,9 @@ function initAstronomy() {
         return;
       }
 
+      // Empujar entrada al historial para que el gesto "Atrás" del celular cierre el visor
+      history.pushState({ modal: 'stellar-viewer' }, '');
+
       stellarOverlay.classList.remove('hidden');
       const currentAz = parseFloat(azimuthSlider.value);
       const currentAlt = parseFloat(altitudeSlider.value);
@@ -288,43 +291,109 @@ function initAstronomy() {
     }
 
     if (btnCloseStellar) {
-      btnCloseStellar.addEventListener('click', closeStellarViewer);
+      btnCloseStellar.addEventListener('click', () => {
+        // Al cerrar desde el botón, retroceder en el historial para mantener el stack limpio
+        if (history.state && history.state.modal === 'stellar-viewer') {
+          history.back();
+        } else {
+          closeStellarViewer();
+        }
+      });
     }
 
-    // Atajo de Teclado: Tecla PageUp (RePág) o Escape para salir del visor estelar
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'PageUp' || e.key === 'Escape') {
+    // Gesto nativo 'Atrás' del celular (popstate) cierra el visor sin salir de la app
+    window.addEventListener('popstate', (e) => {
+      if (!stellarOverlay.classList.contains('hidden')) {
         closeStellarViewer();
       }
     });
 
-    // Detección de Gestos Táctiles (Swipe hacia abajo desde el margen superior para cerrar)
-    let touchStartY = 0;
-    let touchStartX = 0;
+    // Atajo de Teclado: Tecla PageUp (RePág) o Escape para salir del visor estelar
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'PageUp' || e.key === 'Escape') {
+        if (history.state && history.state.modal === 'stellar-viewer') {
+          history.back();
+        } else {
+          closeStellarViewer();
+        }
+      }
+    });
+
+    // ── Swipe-to-Close: SOLO desde la zona del encabezado (Y < 80px) ────────────
+    // Se usa un contador de picos para manejar el caso en que un dedo levanta
+    // antes que el otro durante un pinch (e.touches.length cae a 1 momentáneamente).
+    // El cierre NO se activa si en cualquier punto del gesto hubo ≥ 2 dedos.
+    let swipeTouchStartY = 0;
+    let swipeTouchStartX = 0;
+    let swipeMultiTouchEverActive = false; // true si en algún momento del gesto hubo ≥2 dedos
+    let swipePeakTouches = 0;             // máximo de toques simultáneos en este gesto
 
     stellarOverlay.addEventListener('touchstart', (e) => {
-      if (e.touches && e.touches.length === 1) {
-        touchStartY = e.touches[0].clientY;
-        touchStartX = e.touches[0].clientX;
+      // Rastrear el máximo de dedos simultáneos durante el gesto
+      swipePeakTouches = Math.max(swipePeakTouches, e.touches.length);
+
+      if (e.touches.length >= 2) {
+        // Gesto multitáctil → envenenar la bandera para todo este gesto
+        swipeMultiTouchEverActive = true;
+        return;
+      }
+
+      if (e.touches.length === 1 && swipePeakTouches <= 1) {
+        // Primer toque único sin historial multitáctil: registrar inicio
+        swipeMultiTouchEverActive = false;
+        swipePeakTouches = 1;
+        swipeTouchStartY = e.touches[0].clientY;
+        swipeTouchStartX = e.touches[0].clientX;
+      }
+    }, { passive: true });
+
+    stellarOverlay.addEventListener('touchmove', (e) => {
+      // Si el número de dedos sube a ≥2 durante el movimiento, envenenar el gesto
+      if (e.touches.length >= 2) {
+        swipeMultiTouchEverActive = true;
+        swipePeakTouches = Math.max(swipePeakTouches, e.touches.length);
       }
     }, { passive: true });
 
     stellarOverlay.addEventListener('touchend', (e) => {
-      if (e.changedTouches && e.changedTouches.length === 1) {
-        const deltaY = e.changedTouches[0].clientY - touchStartY;
-        const deltaX = Math.abs(e.changedTouches[0].clientX - touchStartX);
+      swipePeakTouches = Math.max(swipePeakTouches, e.changedTouches.length + e.touches.length);
 
-        // Si se desliza hacia abajo desde el margen superior (< 120px) o hace un swipe vertical largo (> 120px)
-        const isTopEdgeSwipe = touchStartY < 120 && deltaY > 50;
-        const isVerticalDownSwipe = deltaY > 120 && deltaX < 80;
+      // Si el gesto tuvo ≥2 dedos en algún momento → no cerrar
+      if (swipeMultiTouchEverActive || swipePeakTouches >= 2) {
+        // Reiniciar solo cuando todos los dedos hayan levantado
+        if (e.touches.length === 0) {
+          swipeMultiTouchEverActive = false;
+          swipePeakTouches = 0;
+        }
+        return;
+      }
 
-        if (isTopEdgeSwipe || isVerticalDownSwipe) {
+      // Solo evaluar si fue un gesto de 1 dedo puro
+      if (e.changedTouches && e.changedTouches.length === 1 && e.touches.length === 0) {
+        const endY = e.changedTouches[0].clientY;
+        const endX = e.changedTouches[0].clientX;
+        const deltaY = endY - swipeTouchStartY;
+        const deltaX = Math.abs(endX - swipeTouchStartX);
+
+        // CONDICIÓN ESTRICTA: swipe iniciado en el header (< 80px) hacia abajo (> 60px)
+        // con movimiento predominantemente vertical (deltaX < 60px)
+        // — NO se activa desde el canvas del visor —
+        const isHeaderSwipeDown = swipeTouchStartY < 80 && deltaY > 60 && deltaX < 60;
+
+        if (isHeaderSwipeDown) {
           closeStellarViewer();
         }
+      }
+
+      // Reiniciar estado del gesto al levantar todos los dedos
+      if (e.touches.length === 0) {
+        swipeMultiTouchEverActive = false;
+        swipePeakTouches = 0;
       }
     }, { passive: true });
 
     // Manejador explícito de giroscopio multiplataforma por clic en botón
+    // El estado se refleja en el botón (clase .active + HUD) — sin alert() invasivo
     async function activarGiroscopio() {
       try {
         // Caso iOS 13+
@@ -332,23 +401,22 @@ function initAstronomy() {
           const permissionState = await DeviceOrientationEvent.requestPermission();
           if (permissionState === 'granted') {
             if (stellarController) stellarController.setGyroActive(true);
-            alert('Giroscopio activado con éxito');
+            console.log('[GIROSCOPIO] Activado (iOS permiso concedido)');
           } else {
             if (stellarController) stellarController.setGyroActive(false);
-            alert('Permiso de giroscopio denegado en el dispositivo');
+            console.warn('[GIROSCOPIO] Permiso denegado. Modo táctil manual activo.');
           }
         } else if ('DeviceOrientationEvent' in window) {
           // Caso Android y navegadores estándar
           if (stellarController) stellarController.setGyroActive(true);
-          alert('Giroscopio activado');
+          console.log('[GIROSCOPIO] Activado (Android/estándar)');
         } else {
           if (stellarController) stellarController.setGyroActive(false);
-          alert('Tu dispositivo o navegador no soporta el sensor de orientación');
+          console.warn('[GIROSCOPIO] No soportado en este dispositivo/navegador.');
         }
       } catch (error) {
-        console.error('Error al solicitar giroscopio:', error);
+        console.error('[GIROSCOPIO] Error al solicitar sensores:', error);
         if (stellarController) stellarController.setGyroActive(false);
-        alert('Error al conectar sensores: ' + error.message);
       }
     }
 

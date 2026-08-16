@@ -2186,10 +2186,14 @@ export function initStellarViewer(canvas, onUpdateCoords) {
     mouseX = -1000;
     mouseY = -1000;
     clearQuietTimer();
-    
-    if (e.touches.length === 2 || e.shiftKey) {
+
+    // BLINDAJE MULTITÁCTIL: con 2+ dedos, bloquear propagación al overlay de cierre
+    // y cancelar el comportamiento nativo del navegador (scroll/zoom del sistema)
+    if (e.touches.length >= 2 || e.shiftKey) {
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
       isDragging = false;
-      const currentY = e.touches ? e.touches[0].clientY : e.clientY;
+      const currentY = e.touches[0].clientY;
       window.lastZoomY = currentY;
     } else if (e.touches.length === 1) {
       handleStart(e.touches[0].clientX, e.touches[0].clientY);
@@ -2198,12 +2202,13 @@ export function initStellarViewer(canvas, onUpdateCoords) {
 
   canvas.addEventListener('touchmove', (e) => {
     // CASO 1: ZOOM ACTIVO (Con Shift o con 2 dedos)
-    if (e.shiftKey || (e.touches && e.touches.length === 2)) {
-      e.preventDefault();
+    if (e.shiftKey || (e.touches && e.touches.length >= 2)) {
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation(); // Evita que el overlay de cierre reciba el movimiento
       isDragging = false;
       labelsOpacity = 0; // Oculta nombres al hacer zoom
 
-      const currentY = e.touches ? e.touches[0].clientY : e.clientY;
+      const currentY = e.touches[0].clientY;
       if (window.lastZoomY !== undefined && window.lastZoomY !== null) {
         const deltaY = window.lastZoomY - currentY;
         viewFov -= deltaY * 0.1;
@@ -2224,6 +2229,12 @@ export function initStellarViewer(canvas, onUpdateCoords) {
   canvas.addEventListener('touchend', (e) => {
     isDragging = false;
     window.lastZoomY = null;
+
+    // Si queda al menos 1 toque activo proveniente de un gesto multitáctil, bloquear
+    // propagación para que el overlay de cierre no reciba un touchend espurio
+    if (e.touches.length >= 1 || e.changedTouches.length >= 2) {
+      e.stopPropagation();
+    }
 
     // Temporizador de quietud para mostrar etiquetas
     clearTimeout(window.labelsTimeout);

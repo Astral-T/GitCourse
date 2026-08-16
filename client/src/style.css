@@ -2142,6 +2142,11 @@ body.globe-fullscreen-active #globe-3d {
   padding-top: calc(env(safe-area-inset-top, 20px) + 16px) !important;
   margin-top: 32px !important;
   box-sizing: border-box;
+  /* Bloqueo total de gestos de borde / swipe nativo del navegador */
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .stellar-viewer-overlay.hidden {
@@ -2153,6 +2158,11 @@ body.globe-fullscreen-active #globe-3d {
   height: 100vh;
   display: block;
   cursor: grab;
+  /* Bloquear cualquier gesto nativo del navegador sobre el canvas */
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 #stellar-viewer-canvas:active {
@@ -2160,7 +2170,31 @@ body.globe-fullscreen-active #globe-3d {
 }
 
 .stellar-viewer-close {
-  display: none !important;
+  position: fixed !important;
+  top: max(12px, env(safe-area-inset-top, 16px)) !important;
+  padding-top: calc(env(safe-area-inset-top, 16px) + 12px) !important;
+  right: 20px !important;
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 50% !important;
+  background: rgba(10, 12, 22, 0.82) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 1.5px solid rgba(0, 229, 255, 0.35) !important;
+  color: var(--cyan-neon) !important;
+  font-size: 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  z-index: 1000001 !important;
+  box-shadow: 0 2px 16px rgba(0, 229, 255, 0.18) !important;
+  transition: background 0.18s ease, box-shadow 0.18s ease !important;
+  line-height: 1 !important;
+}
+.stellar-viewer-close:hover,
+.stellar-viewer-close:active {
+  background: rgba(0, 229, 255, 0.18) !important;
+  box-shadow: 0 0 22px rgba(0, 229, 255, 0.45) !important;
 }
 
 .stellar-viewer-gyro {
