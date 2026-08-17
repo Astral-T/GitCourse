@@ -40,6 +40,23 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// ── Archivos estáticos: prioridad máxima, antes de cualquier otra ruta ────────
+const distPath = path.resolve(__dirname, '../client/dist');
+
+console.log('Ruta de estáticos client/dist:', distPath);
+if (fs.existsSync(distPath)) {
+  console.log('Archivos en dist:', fs.readdirSync(distPath));
+  if (fs.existsSync(path.join(distPath, 'assets'))) {
+    console.log('Archivos en dist/assets:', fs.readdirSync(path.join(distPath, 'assets')));
+  }
+}
+
+// 1. Servir archivos estáticos con prioridad máxima
+app.use(express.static(distPath));
+app.use('/assets', express.static(path.join(distPath, 'assets')));
+
+// ── Rutas de la API ───────────────────────────────────────────────────────────
+
 // Endpoint de Salud
 app.get('/api/status', (req, res) => {
   res.json({
@@ -49,26 +66,23 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// Rutas de la API
 app.use('/api/news', newsRouter);
 app.use('/api/trading', tradingRouter);
 app.use('/api/learning', learningRouter);
 app.use('/api/dev', devRouter);
 
-// Servir estáticos de client/dist con resolución de ruta absoluta tolerante
-const clientDistPath = path.resolve(__dirname, '../client/dist');
+// 3. SPA Fallback: Si no es /api ni un archivo con extensión, servir index.html
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  const filePath = path.join(distPath, 'index.html');
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.status(404).send('client/dist/index.html no encontrado');
+  }
+});
 
-if (fs.existsSync(clientDistPath)) {
-  app.use(express.static(clientDistPath));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api') || req.path.includes('.')) return next();
-    res.sendFile(path.join(clientDistPath, 'index.html'));
-  });
-} else {
-  console.error('ALERTA: No se encontro la carpeta client/dist en:', clientDistPath);
-}
-
-// Inicializar base de datos y arrancar servidor
+// ── Inicializar base de datos y arrancar servidor ─────────────────────────────
 async function startServer() {
   try {
     console.log('Inicializando servidor...');
