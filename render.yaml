@@ -18,7 +18,7 @@ services:
     name: piloto-antigravity-api
     runtime: node
     rootDir: server
-    buildCommand: npm install
+    buildCommand: npm install && npm run build
     startCommand: npm start
     plan: free               # Cambia a 'starter' si necesitas no dormir en inactividad
     autoDeploy: true

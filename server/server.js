@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
 import db from './db.js';
 import newsRouter from './routes/news.js';
 import tradingRouter from './routes/trading.js';
@@ -9,12 +12,15 @@ import devRouter from './routes/dev.js';
 
 dotenv.config();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Orígenes permitidos: producción (ALLOWED_ORIGIN) + desarrollo local
 const allowedOrigins = [
-  process.env.ALLOWED_ORIGIN,          // Ej: https://piloto-antigravity.onrender.com
+  process.env.ALLOWED_ORIGIN,          // Ej: https://portal-piloto.onrender.com
   'http://localhost:5174',
   'http://localhost:5173',
   'http://localhost:3000',
@@ -48,6 +54,19 @@ app.use('/api/news', newsRouter);
 app.use('/api/trading', tradingRouter);
 app.use('/api/learning', learningRouter);
 app.use('/api/dev', devRouter);
+
+// Servir estáticos de client/dist con resolución de ruta absoluta tolerante
+const clientDistPath = path.resolve(__dirname, '../client/dist');
+
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.includes('.')) return next();
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+} else {
+  console.error('ALERTA: No se encontro la carpeta client/dist en:', clientDistPath);
+}
 
 // Inicializar base de datos y arrancar servidor
 async function startServer() {
